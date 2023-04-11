@@ -1,0 +1,5 @@
+@rust
+
+cmddef build {
+    exec("cargo build");
+  }

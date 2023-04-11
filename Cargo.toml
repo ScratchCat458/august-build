@@ -1,0 +1,28 @@
+[package]
+name = "august-build"
+description = """
+Task-based build system with a custom syntax and modularity features for all your artifact construction needs.
+Built with love. Built with Rust. Build with August.
+"""
+version = "0.1.0"
+edition = "2021"
+authors = ["Hayden Brown <scratchcat458@gmail.com>"]
+keywords = ["build", "august"]
+categories = ["command-line-utilities", "development-tools::build-utils"]
+readme = "README.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+ariadne = "0.2"
+owo-colors = "3"
+clap = { version = "4", features = ["derive"] }
+walkdir = "2"
+dirs = "5"
+run_script = "0.10"
+comfy-table = "6.1"
+
+
+[[bin]]
+name = "august"
+path = "src/main.rs"
