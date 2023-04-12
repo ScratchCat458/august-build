@@ -4,7 +4,6 @@ use run_script::run_script;
 use std::{collections::HashMap, path::PathBuf};
 
 pub mod cli;
-pub mod config;
 pub mod output;
 
 pub struct ExecutionPool {
