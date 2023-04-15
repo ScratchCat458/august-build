@@ -5,7 +5,7 @@
 [![dependency status](https://deps.rs/crate/august-build/0.1.0/status.svg)](https://deps.rs/crate/august-build/0.1.0)
 ![License](https://img.shields.io/crates/l/august-build)
 
-![August Logo](./docs/images/August Build.svg) 
+![August Logo](https://raw.githubusercontent.com/ScratchCat458/august-build/master/docs/images/August%20Build.svg) 
 
 August is a build system much like others of the task-based genre.
 It uses a custom syntax for configuring builds and can import other files for the purpose of modularity.
