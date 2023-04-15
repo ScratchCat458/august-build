@@ -1,19 +1,19 @@
 @main
 
-#link rust
+#pragma test test
 #pragma build build
 
-Task build:[test] {
-  rust.build;
-  my_cmd;
+Task build {
+  print_file("Cargo.toml");
+  exec("cargo build");
 }
 
 Task test {
+  lints;
   exec("cargo test");
-
 }
 
-cmddef my_cmd {
-  print_file("Cargo.toml");
-  set_env_var("var", "cont");
+cmddef lints {
+  exec("cargo fmt");
+  exec("cargo clippy");
 }

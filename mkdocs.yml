@@ -1,12 +1,16 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
 
 site_name: August Build
-
+repo_url: https://github.com/ScratchCat458/august-build
+repo_name: ScratchCat458/august-build
+copyright: Copyright &copy; 2023 Hayden Brown under the MIT license
 
 theme:
   name: material
   logo: images/August Minimal.svg
   favicon: images/August Build.svg
+  icon:
+    repo: fontawesome/brands/github 
   palette: 
     scheme: slate
     primary: indigo
@@ -18,7 +22,6 @@ theme:
     - navigation.tracking
     - navigation.tabs
     - navigation.sections
-    - navigation.footer
     - toc.follow
     - search.suggest
     - content.code.copy
@@ -63,9 +66,16 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 nav:
-  - Home: index.md
+  - Welcome:
+    - index.md
   - Getting Started:
     - getting-started/index.md
+    - getting-started/installation.md
+    - getting-started/the-basics.md
+    - getting-started/extending-august.md
+    - getting-started/command-reference.md
+  - Modules:
+    - modules/cargo.md
   - Implementation:
     - implementation/index.md
     - Concepts:
@@ -81,6 +91,3 @@ nav:
       - implementation/parsing/tokenisation.md
       - implementation/parsing/syntax.md
       - implementation/parsing/module-linking.md
-    - Runtime:
-      - implementation/runtime/index.md
-      - implementation/runtime/execution-pool.md

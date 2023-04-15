@@ -1,0 +1,29 @@
+# Cargo
+
+```august title="cargo.august"
+@cargo
+
+cmddef test {
+  exec("cargo test");
+}
+
+cmddef build {
+  exec("cargo build --release");
+}
+
+cmddef build_debug {
+  exec("cargo build");
+}
+
+cmddef format {
+  exec("cargo fmt");
+}
+
+cmddef clippy {
+  exec("cargo clippy");
+}
+
+cmddef build_docs {
+  exec("cargo doc");
+}
+```

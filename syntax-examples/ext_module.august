@@ -1,0 +1,5 @@
+@ext_module
+
+cmddef mycmd {
+  print("This message is from an externally defined command!");
+}

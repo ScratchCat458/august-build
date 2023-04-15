@@ -1,0 +1,14 @@
+@main
+
+#link ext_module
+#pragma build build
+
+Test build {
+  print("This message is from an internal command!");
+  localcmddef;
+  ext_module.mycmd;
+}
+
+cmddef localcmddef {
+  print("This message is from a locally defined command!");
+}    
