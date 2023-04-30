@@ -182,31 +182,25 @@ pub fn tokenise(input: String) -> Vec<Token> {
     let mut cursor = input.chars().enumerate().peekable();
     let mut tokens = Vec::new();
 
-    while let Some(_) = cursor.peek() {
-        match classify(&mut cursor) {
-            Some(t) => {
-                tokens.push(t);
-            }
-            None => (),
+    while cursor.peek().is_some() {
+        if let Some(t) = classify(&mut cursor) {
+            tokens.push(t);
         }
     }
 
     tokens
 }
 
-fn create_node(mut cursor: &mut Peekable<Enumerate<Chars>>, encap: EncapsulatorType) -> Node {
+fn create_node(cursor: &mut Peekable<Enumerate<Chars>>, encap: EncapsulatorType) -> Node {
     let mut node = Node::new(encap.clone());
 
     while let Some((_, c)) = cursor.peek() {
-        if c.to_owned() == encap.closing_char() {
+        if *c == encap.closing_char() {
             break;
         }
 
-        match classify(&mut cursor) {
-            Some(t) => {
-                node.children.push(t);
-            }
-            None => (),
+        if let Some(t) = classify(cursor) {
+            node.children.push(t);
         }
     }
 
@@ -215,7 +209,7 @@ fn create_node(mut cursor: &mut Peekable<Enumerate<Chars>>, encap: EncapsulatorT
 
 fn classify(cursor: &mut Peekable<Enumerate<Chars>>) -> Option<Token> {
     #![allow(unused_assignments)]
-    match cursor.peek().unwrap().clone() {
+    match *cursor.peek().unwrap() {
         (s, 'A'..='Z' | 'a'..='z') => {
             let mut ident = String::new();
             let mut ending_pos = 0_usize;
@@ -288,7 +282,7 @@ fn classify(cursor: &mut Peekable<Enumerate<Chars>>) -> Option<Token> {
             ))
         }
         (s, '(' | '{' | '[' | '<') => {
-            let (_, t) = cursor.next().unwrap().clone();
+            let (_, t) = cursor.next().unwrap();
             let node = create_node(cursor, EncapsulatorType::new(t));
             let (ending_pos, _) = cursor.next().unwrap();
 

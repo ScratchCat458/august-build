@@ -40,29 +40,29 @@ impl ParserError {
         #![allow(unused_variables)]
         let file_name = file_name.into();
         let report = match self {
-            Self::OutOfTokens { scope } => self.out_of_tokens_impl(file_name.clone()),
+            Self::OutOfTokens { scope } => self.out_of_tokens_impl(file_name),
             Self::TokenMismatch {
                 scope,
                 token,
                 expected_token,
-            } => self.token_mismatch_impl(file_name.clone()),
+            } => self.token_mismatch_impl(file_name),
             Self::EncapsulatorMismatch {
                 scope,
                 encap,
                 expected_encap,
                 node_span,
-            } => self.encapsulator_mismatch_impl(file_name.clone()),
+            } => self.encapsulator_mismatch_impl(file_name),
             Self::BadChunkLength {
                 scope,
                 len,
                 valid_len,
                 chunk_span,
-            } => self.bad_chunk_length_impl(file_name.clone()),
+            } => self.bad_chunk_length_impl(file_name),
             Self::InvalidBody {
                 scope,
                 token,
                 valid_body,
-            } => self.invalid_body_impl(file_name.clone()),
+            } => self.invalid_body_impl(file_name),
         };
 
         report

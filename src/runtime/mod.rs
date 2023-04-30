@@ -60,9 +60,9 @@ impl ExecutionPool {
         }
         .print();
 
-        if task.dependencies.len() != 0 {
+        if !task.dependencies.is_empty() {
             for dep in &task.dependencies {
-                if self.active_tasks.contains(&dep) {
+                if self.active_tasks.contains(dep) {
                     continue;
                 }
 
@@ -75,7 +75,7 @@ impl ExecutionPool {
         }
 
         for command in &task.commands {
-            self.run_command(&command)?;
+            self.run_command(command)?;
         }
 
         self.purge_task_as_dependency(task_name);
@@ -102,12 +102,12 @@ impl ExecutionPool {
                         }
                     }
                     InternalCommand::MakeFile(f) => {
-                        if let Err(_) = std::fs::write(PathBuf::from(f), "") {
+                        if std::fs::write(PathBuf::from(f), "").is_err() {
                             return Err(RuntimeError::FailedFileRead);
                         }
                     }
                     InternalCommand::MakeDirectory(d) => {
-                        if let Err(_) = std::fs::create_dir_all(PathBuf::from(d)) {
+                        if std::fs::create_dir_all(PathBuf::from(d)).is_err() {
                             return Err(RuntimeError::FailedFileRead);
                         }
                     }
@@ -127,6 +127,30 @@ impl ExecutionPool {
 
                         println!("{file}");
                     }
+                    InternalCommand::RemoveDirectory(d) => {
+                        if std::fs::remove_dir_all(d).is_err() {
+                            return Err(RuntimeError::FailedFileRead);
+                        }
+                    }
+                    InternalCommand::RemoveFile(f) => {
+                        if std::fs::remove_file(f).is_err() {
+                            return Err(RuntimeError::FailedFileRead);
+                        }
+                    }
+                    InternalCommand::CopyFile(s, d) => {
+                        if std::fs::copy(s, d).is_err() {
+                            return Err(RuntimeError::FailedFileRead);
+                        }
+                    }
+                    InternalCommand::MoveFile(s, d) => {
+                        if std::fs::copy(s, d).is_err() {
+                            return Err(RuntimeError::FailedFileRead);
+                        }
+
+                        if std::fs::remove_file(s).is_err() {
+                            return Err(RuntimeError::ProcessFailure);
+                        }
+                    }
                 }
             }
             _ => {
@@ -135,7 +159,7 @@ impl ExecutionPool {
                 }
                 .print();
 
-                let def = match self.cmd_defs.get(&command) {
+                let def = match self.cmd_defs.get(command) {
                     Some(d) => d,
                     None => {
                         return Err(RuntimeError::NonExsistentCommand);

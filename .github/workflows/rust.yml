@@ -2,9 +2,13 @@ on:
   pull_request:
     paths:
       - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
   push:
     paths:
       - 'src/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
 
 name: Rust Standard CI
 
@@ -21,3 +25,6 @@ jobs:
 
       - name: Run cargo test
         run: cargo test
+
+      - name: Run cargo clippy
+        run: cargo clippy

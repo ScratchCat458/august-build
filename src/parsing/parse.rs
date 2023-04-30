@@ -88,7 +88,7 @@ pub fn parse_task(cursor: &mut Peekable<Iter<Token>>) -> Result<(String, Task), 
 
             let chunks = node.children.split(|x| x == &Token::Punct(',', NULL_SPAN));
             for chunk in chunks {
-                if chunk.len() == 0 {
+                if chunk.is_empty() {
                     continue;
                 }
 
@@ -212,7 +212,7 @@ pub fn parse_body_cmds(
     let mut commands = Vec::new();
 
     for chunk in chunks {
-        if chunk.len() == 0 {
+        if chunk.is_empty() {
             continue;
         }
 
@@ -461,6 +461,154 @@ pub fn parse_body_cmds(
                             });
                         }
                     }
+                    "remove_dir" => {
+                        if arg_node.children.len() != 1 {
+                            return Err(ParserError::BadChunkLength {
+                                scope,
+                                len: arg_node.children.len(),
+                                valid_len: vec![1],
+                                chunk_span: arg_span,
+                            });
+                        }
+
+                        if let Token::StringLiteral(l, _) = arg_node.children[0].clone() {
+                            commands.push(Command::Internal(InternalCommand::RemoveDirectory(l)));
+                        } else {
+                            return Err(ParserError::TokenMismatch {
+                                scope,
+                                token: arg_node.children[0].to_owned(),
+                                expected_token: Token::StringLiteral(
+                                    "directory".to_string(),
+                                    NULL_SPAN,
+                                ),
+                            });
+                        }
+                    }
+                    "remove_file" => {
+                        if arg_node.children.len() != 1 {
+                            return Err(ParserError::BadChunkLength {
+                                scope,
+                                len: arg_node.children.len(),
+                                valid_len: vec![1],
+                                chunk_span: arg_span,
+                            });
+                        }
+
+                        if let Token::StringLiteral(l, _) = arg_node.children[0].clone() {
+                            commands.push(Command::Internal(InternalCommand::RemoveFile(l)));
+                        } else {
+                            return Err(ParserError::TokenMismatch {
+                                scope,
+                                token: arg_node.children[0].to_owned(),
+                                expected_token: Token::StringLiteral(
+                                    "file_name".to_string(),
+                                    NULL_SPAN,
+                                ),
+                            });
+                        }
+                    }
+                    "copy_file" => {
+                        if arg_node.children.len() != 3 {
+                            return Err(ParserError::BadChunkLength {
+                                scope,
+                                len: arg_node.children.len(),
+                                valid_len: vec![3],
+                                chunk_span: arg_span,
+                            });
+                        }
+
+                        let source_path = match arg_node.children[0].clone() {
+                            Token::StringLiteral(l, _) => l,
+                            _ => {
+                                return Err(ParserError::TokenMismatch {
+                                    scope,
+                                    token: arg_node.children[0].to_owned(),
+                                    expected_token: Token::StringLiteral(
+                                        "source_path".to_string(),
+                                        NULL_SPAN,
+                                    ),
+                                });
+                            }
+                        };
+
+                        if arg_node.children[1] != Token::Punct(',', NULL_SPAN) {
+                            return Err(ParserError::TokenMismatch {
+                                scope,
+                                token: arg_node.children[1].to_owned(),
+                                expected_token: Token::Punct(',', NULL_SPAN),
+                            });
+                        }
+
+                        let destination_path = match arg_node.children[2].clone() {
+                            Token::StringLiteral(l, _) => l,
+                            _ => {
+                                return Err(ParserError::TokenMismatch {
+                                    scope,
+                                    token: arg_node.children[2].to_owned(),
+                                    expected_token: Token::StringLiteral(
+                                        "destination_path".to_string(),
+                                        NULL_SPAN,
+                                    ),
+                                });
+                            }
+                        };
+
+                        commands.push(Command::Internal(InternalCommand::CopyFile(
+                            source_path,
+                            destination_path,
+                        )));
+                    }
+                    "move_file" => {
+                        if arg_node.children.len() != 3 {
+                            return Err(ParserError::BadChunkLength {
+                                scope,
+                                len: arg_node.children.len(),
+                                valid_len: vec![3],
+                                chunk_span: arg_span,
+                            });
+                        }
+
+                        let source_path = match arg_node.children[0].clone() {
+                            Token::StringLiteral(l, _) => l,
+                            _ => {
+                                return Err(ParserError::TokenMismatch {
+                                    scope,
+                                    token: arg_node.children[0].to_owned(),
+                                    expected_token: Token::StringLiteral(
+                                        "source_path".to_string(),
+                                        NULL_SPAN,
+                                    ),
+                                });
+                            }
+                        };
+
+                        if arg_node.children[1] != Token::Punct(',', NULL_SPAN) {
+                            return Err(ParserError::TokenMismatch {
+                                scope,
+                                token: arg_node.children[1].to_owned(),
+                                expected_token: Token::Punct(',', NULL_SPAN),
+                            });
+                        }
+
+                        let destination_path = match arg_node.children[2].clone() {
+                            Token::StringLiteral(l, _) => l,
+                            _ => {
+                                return Err(ParserError::TokenMismatch {
+                                    scope,
+                                    token: arg_node.children[2].to_owned(),
+                                    expected_token: Token::StringLiteral(
+                                        "destination_path".to_string(),
+                                        NULL_SPAN,
+                                    ),
+                                });
+                            }
+                        };
+
+                        commands.push(Command::Internal(InternalCommand::MoveFile(
+                            source_path,
+                            destination_path,
+                        )));
+                    }
                     _ => {
                         return Err(ParserError::InvalidBody {
                             scope,
@@ -593,12 +741,12 @@ pub fn parse_namespace(cursor: &mut Peekable<Iter<Token>>) -> Result<String, Par
     cursor.next();
 
     if let Token::Ident(i, _) = err_unwrap(cursor.peek(), ParserScope::Namespace)? {
-        return Ok(i.to_owned());
+        Ok(i.to_owned())
     } else {
-        return Err(ParserError::TokenMismatch {
+        Err(ParserError::TokenMismatch {
             scope: ParserScope::Namespace,
             token: cursor.next().unwrap().to_owned(),
             expected_token: Token::Ident(String::from("namespace"), NULL_SPAN),
-        });
+        })
     }
 }

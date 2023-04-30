@@ -34,9 +34,8 @@ impl Module {
     }
 
     pub fn cmd_def(&mut self, name: Command, definition: CommandDefinition) -> &mut Self {
-        match name {
-            Command::Internal(_) => panic!("Developer did a no no!"),
-            _ => (),
+        if let Command::Internal(_) = name {
+            panic!("Developer did a no no!");
         }
 
         self.cmd_defs.insert(name, definition);
@@ -132,4 +131,8 @@ pub enum InternalCommand {
     PrintFile(String),
     MakeDirectory(String),
     MakeFile(String),
+    RemoveDirectory(String),
+    RemoveFile(String),
+    CopyFile(String, String),
+    MoveFile(String, String),
 }

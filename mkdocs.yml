@@ -1,9 +1,10 @@
 # yaml-language-server: $schema=https://squidfunk.github.io/mkdocs-material/schema.json
 
 site_name: August Build
+site_url: https://august-build.web.app
 repo_url: https://github.com/ScratchCat458/august-build
 repo_name: ScratchCat458/august-build
-copyright: Copyright &copy; 2023 Hayden Brown under the MIT license
+copyright: Copyright &copy; 2023 Hayden Brown (ScratchCat458) under the MIT license
 
 theme:
   name: material
@@ -27,7 +28,7 @@ theme:
     - content.code.copy
 
 plugins:
-  - search      
+  - search
 
 markdown_extensions:
   - admonition
