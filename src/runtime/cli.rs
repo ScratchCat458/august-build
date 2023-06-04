@@ -33,13 +33,17 @@ pub enum CLICommand {
         /// The name of the task to be run
         task_name: String,
     },
-    /// Parses the build script and associated modules, but doesn't run anything
-    Parse {
+    /// Parses the build script and associated modules to check for errors, but doesn't run anything
+    Check {
         /// The file path of the build script. The default is `main.august`.
         #[arg(short, long)]
         script: Option<PathBuf>,
-        /// Displays a debug render of the fully parsed module
+    },
+    /// Parses the build script and associated modules and displays some details about it.
+    /// Doesn't run anything.
+    Inspect {
+        /// The file path of the build script. The default is `main.august`.
         #[arg(short, long)]
-        display: bool,
+        script: Option<PathBuf>,
     },
 }

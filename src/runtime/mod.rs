@@ -17,7 +17,7 @@ impl ExecutionPool {
         tasks: HashMap<String, Task>,
         cmd_defs: HashMap<Command, CommandDefinition>,
     ) -> Self {
-        ExecutionPool {
+        Self {
             tasks,
             cmd_defs,
             active_tasks: Vec::new(),

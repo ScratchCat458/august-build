@@ -91,13 +91,13 @@ impl fmt::Display for Notification {
             Self::Completion => {
                 format!(
                     "{} All required tasks have been completed",
-                    "    DONE✓    ".black().on_green()
+                    "    DONE ✓   ".black().on_green()
                 )
             }
             Self::Fail { error } => {
                 format!(
                     "{} An error occurred during runtime: {error:?}",
-                    "    FAIL    ".black().on_red()
+                    "    FAIL ✕   ".black().on_red()
                 )
             }
         };

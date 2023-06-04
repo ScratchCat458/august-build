@@ -4,7 +4,7 @@ description = """
 Task-based build system with a custom syntax and modularity features for all your artifact construction needs.
 Built with love. Built with Rust. Build with August.
 """
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["Hayden Brown <scratchcat458@gmail.com>"]
 repository = "https://github.com/ScratchCat458/august-build"

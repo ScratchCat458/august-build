@@ -1,4 +1,4 @@
-use std::{ffi::OsStr, path::PathBuf};
+use std::{collections::HashMap, ffi::OsStr, path::PathBuf};
 
 use august_build::{
     parsing::parse_script,
@@ -6,6 +6,7 @@ use august_build::{
         cli::{CLICommand, CLI},
         ExecutionPool,
     },
+    Command, CommandDefinition, Pragma, Task,
 };
 use clap::Parser;
 use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Table};
@@ -71,7 +72,7 @@ fn main() {
                 .load_preset(UTF8_FULL)
                 .apply_modifier(UTF8_ROUND_CORNERS)
                 .add_row(vec!["Package Name", env!("CARGO_PKG_NAME")])
-                .add_row(vec!["Authour(s)", env!("CARGO_PKG_AUTHORS")])
+                .add_row(vec!["Author(s)", env!("CARGO_PKG_AUTHORS")])
                 .add_row(vec!["Version", env!("CARGO_PKG_VERSION")])
                 .add_row(vec!["Documentation", env!("CARGO_PKG_HOMEPAGE")])
                 .add_row(vec!["Repository", env!("CARGO_PKG_REPOSITORY")])
@@ -130,7 +131,16 @@ fn main() {
             let module = parse_script(script);
             ExecutionPool::new(module.tasks, module.cmd_defs).run(task_name);
         }
-        CLICommand::Parse { script, display } => {
+        CLICommand::Check { script } => {
+            let script = script
+                .unwrap_or(PathBuf::from(DEFAULT_SCRIPT_PATH))
+                .to_str()
+                .unwrap_or(DEFAULT_SCRIPT_PATH)
+                .to_string();
+
+            parse_script(script);
+        }
+        CLICommand::Inspect { script } => {
             let script = script
                 .unwrap_or(PathBuf::from(DEFAULT_SCRIPT_PATH))
                 .to_str()
@@ -139,9 +149,48 @@ fn main() {
 
             let module = parse_script(script);
 
-            if display {
-                println!("{module:#?}");
-            }
+            let mut table = Table::new();
+
+            table
+                .load_preset(UTF8_FULL)
+                .apply_modifier(UTF8_ROUND_CORNERS)
+                .set_header(["Property", "Contents"])
+                .add_row(["Namespace", &module.namespace])
+                .add_row(["Pragma", &fmt_pragma(module.pragmas)])
+                .add_row(["Tasks", &fmt_tasks(&module.tasks)])
+                .add_row(["Command Definitions", &fmt_cmddefs(&module.cmd_defs)]);
+
+            println!("{table}");
         }
     }
+}
+
+fn fmt_pragma(pragma: Pragma) -> String {
+    format!(
+        "Test --> {}\nBuild --> {}",
+        pragma.test.unwrap_or("None".to_string()),
+        pragma.build.unwrap_or("None".to_string())
+    )
+}
+
+fn fmt_tasks(hashmap: &HashMap<String, Task>) -> String {
+    let mut string = String::new();
+    for k in hashmap.keys() {
+        string.push_str(&format!("- {k}\n"));
+    }
+    string
+}
+
+fn fmt_cmddefs(hashmap: &HashMap<Command, CommandDefinition>) -> String {
+    let mut string = String::new();
+    for k in hashmap.keys() {
+        let cmd = match k {
+            Command::Local(n) => n.to_string(),
+            Command::External(ns, n) => format!("{n} from {ns}"),
+            Command::Internal(_) => panic!(),
+        };
+
+        string.push_str(&format!("- {cmd}\n"));
+    }
+    string
 }
