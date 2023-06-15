@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error, ffi::OsStr, path::PathBuf};
+use std::{collections::HashMap, error::Error, ffi::OsStr, io::stdout, path::PathBuf};
 
 use august_build::{
     parsing::parse_script,
@@ -8,7 +8,8 @@ use august_build::{
     },
     Command, CommandDefinition, Pragma, Task,
 };
-use clap::Parser;
+use clap::{CommandFactory, Parser};
+use clap_complete::generator;
 use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Table};
 use owo_colors::OwoColorize;
 use walkdir::WalkDir;
@@ -161,6 +162,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .add_row(["Command Definitions", &fmt_cmddefs(&module.cmd_defs)]);
 
             println!("{table}");
+        }
+        CLICommand::Completions { shell } => {
+            let mut cmd = CLI::command();
+            generator::generate(shell, &mut cmd, "august", &mut stdout());
         }
     }
     Ok(())

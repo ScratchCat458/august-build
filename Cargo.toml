@@ -13,6 +13,7 @@ keywords = ["build", "august", "build-system"]
 categories = ["command-line-utilities", "development-tools::build-utils"]
 readme = "README.md"
 license = "MIT"
+build = "build.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -20,11 +21,15 @@ license = "MIT"
 ariadne = "0.3"
 owo-colors = "3"
 clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
 walkdir = "2"
 dirs = "5"
 run_script = "0.10"
 comfy-table = "7"
 
+[build-dependencies]
+clap = { version = "4", features = ["derive"] }
+clap_complete = "4"
 
 [[bin]]
 name = "august"

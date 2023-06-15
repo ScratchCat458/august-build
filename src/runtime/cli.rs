@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Command, CommandFactory, Parser, Subcommand};
+use clap_complete::Shell;
 
 #[derive(Parser, Debug, Clone, PartialEq, Eq)]
 #[command(author, version, about)]
@@ -46,4 +47,14 @@ pub enum CLICommand {
         #[arg(short, long)]
         script: Option<PathBuf>,
     },
+    /// Generate command line autocompletions based on shell
+    Completions {
+        /// The shell to generate completions for
+        #[arg(value_enum)]
+        shell: Shell,
+    },
+}
+
+pub fn build_cmd() -> Command {
+    CLI::command()
 }

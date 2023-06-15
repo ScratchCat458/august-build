@@ -2,7 +2,7 @@
 
 [![crates.io](https://img.shields.io/crates/v/august-build)](https://crates.io/crates/august-build)
 ![Workflow Status](https://github.com/ScratchCat458/august-build/actions/workflows/rust.yml/badge.svg)
-[![dependency status](https://deps.rs/crate/august-build/0.1.0/status.svg)](https://deps.rs/crate/august-build/0.1.0)
+[![dependency status](https://deps.rs/crate/august-build/status.svg)](https://deps.rs/crate/august-build)
 ![License](https://img.shields.io/crates/l/august-build)
 
 ![August Logo](https://raw.githubusercontent.com/ScratchCat458/august-build/master/docs/images/August%20Build.svg) 
@@ -21,19 +21,16 @@ cargo build --release
 ```
 
 ## Documentation
-Writing the getting started documentation is still in progress, but most of the implementation details have been written up.
-To view the docs locally (for now until I get some proper hosting), you will need pip:
-```sh
-pip install mkdocs-material
-mkdocs serve
-```
+August's user documentation can be found at [https://august-build.web.app](https://august-build.web.app).
+Internal docs can be found on [docs.rs](https://docs.rs/august-build/0.2.1/august_build/) though everything is mostly undocumented.
 
 ## Brilliant Crates
 August is only made possible thanks to the efforts of many others.
 Here they all are:
 - [`ariadne`](https://github.com/zesterer/ariadne): Beautiful parser error handling by [@zesterer](https://github.com/zesterer) 
 - [`clap`](https://github.com/clap-rs/clap): Derive-based command-line argument parser
-- [`comfy-table`](https://github.com/nukesor/comfy-table): Beautiful table generation for `august info` by [@Nukesor](https://github.com/nukesor)
+- [`clap_complete`](https://github.com/clap-rs/clap/tree/master/clap_complete): Generator for command line autocompletions, see `august completions`
+- [`comfy-table`](https://github.com/nukesor/comfy-table): Beautiful table generation for `august info` and `august inspect` by [@Nukesor](https://github.com/nukesor)
 - [`dirs`](https://github.com/dirs-dev/dirs-rs): Used exclusively for finding the home directory
 - [`owo-colors`](https://github.com/jam1garner/owo-colors): Vibrant colouring for displaying CLI execution by [@jam1garner](https://github.com/jam1garner)
 - [`run-script`](https://github.com/sagiegurari/run_script): Used so I don't have to think about argument separation in the `exec` command by [@sagiegurari](https://github.com/sagiegurari)
