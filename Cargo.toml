@@ -2,7 +2,6 @@
 name = "august-build"
 description = """
 Task-based build system with a custom syntax and modularity features for all your artifact construction needs.
-Built with love. Built with Rust. Build with August.
 """
 version = "0.2.1"
 edition = "2021"
@@ -10,7 +9,7 @@ authors = ["Hayden Brown <scratchcat458@gmail.com>"]
 repository = "https://github.com/ScratchCat458/august-build"
 homepage = "https://august-build.web.app"
 documentation = "https://docs.rs/august-build"
-keywords = ["build", "august"]
+keywords = ["build", "august", "build-system"]
 categories = ["command-line-utilities", "development-tools::build-utils"]
 readme = "README.md"
 license = "MIT"
@@ -18,13 +17,13 @@ license = "MIT"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ariadne = "0.2"
+ariadne = "0.3"
 owo-colors = "3"
 clap = { version = "4", features = ["derive"] }
 walkdir = "2"
 dirs = "5"
 run_script = "0.10"
-comfy-table = "6.1"
+comfy-table = "7"
 
 
 [[bin]]

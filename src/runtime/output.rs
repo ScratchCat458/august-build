@@ -4,12 +4,24 @@ use owo_colors::OwoColorize;
 
 use crate::Command;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum RuntimeError {
-    NonExsistentCommand,
-    ProcessFailure,
-    MalformedShellCommand,
-    FailedFileRead,
+    NonExsistentCommand(Command),
+    ProcessFailure(String, i32),
+    RunScriptError(run_script::ScriptError),
+    IoError(std::io::Error),
+}
+
+impl From<std::io::Error> for RuntimeError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IoError(value)
+    }
+}
+
+impl From<run_script::ScriptError> for RuntimeError {
+    fn from(value: run_script::ScriptError) -> Self {
+        Self::RunScriptError(value)
+    }
 }
 
 pub enum Notification {

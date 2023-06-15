@@ -6,7 +6,7 @@ use std::{
 
 use super::token::{EncapsulatorType, Span, Token};
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum ParserError {
     OutOfTokens {
         scope: ParserScope,
@@ -33,6 +33,7 @@ pub enum ParserError {
         token: Token,
         valid_body: Vec<String>,
     },
+    IoError(std::io::Error),
 }
 
 impl ParserError {
@@ -63,6 +64,9 @@ impl ParserError {
                 token,
                 valid_body,
             } => self.invalid_body_impl(file_name),
+            Self::IoError(e) => Report::build(ReportKind::Error, "_".to_string(), 0)
+                .with_message(e)
+                .finish(),
         };
 
         report
@@ -175,6 +179,34 @@ impl ParserError {
             .finish()
     }
 }
+
+impl fmt::Display for ParserError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let m = match self {
+            Self::OutOfTokens { scope } => format!("Ran of out tokens while parsing {scope}.\nThis should never occur. Check for incomplete blocks or statements."),
+            Self::TokenMismatch { scope, token, expected_token } => format!(
+                "Token Mismatch: expected {}, found {} while parsing {scope}",
+                expected_token.token_name(),
+                token.token_name()
+            ),
+            Self::EncapsulatorMismatch { scope, encap, expected_encap, node_span: _ } => format!(
+                "Encapsulator Mismatch: expected {expected_encap}, found {encap} while parsing {scope}"
+            ),
+            Self::BadChunkLength { scope, len, valid_len, chunk_span: _ } => format!("Bad Chunk Length: found chunk with length {len} while parsing {scope}, expected either of the following {valid_len:?}"),
+            Self::InvalidBody { scope, token: _, valid_body } => format!("Invalid Token Body: token contained invalid body content with parsing {scope}, consider replacing with {valid_body:?}"),
+            Self::IoError(e) => format!("{e}")
+        };
+        write!(f, "{m}")
+    }
+}
+
+impl From<std::io::Error> for ParserError {
+    fn from(value: std::io::Error) -> Self {
+        Self::IoError(value)
+    }
+}
+
+impl std::error::Error for ParserError {}
 
 #[derive(Debug, Clone)]
 pub enum ParserScope {

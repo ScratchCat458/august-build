@@ -91,25 +91,16 @@ impl ExecutionPool {
                 .print();
                 match ic {
                     InternalCommand::Exec(e) => {
-                        let code = match run_script!(e) {
-                            Ok((code, _, _)) => code,
-                            Err(_) => {
-                                return Err(RuntimeError::MalformedShellCommand);
-                            }
-                        };
+                        let (code, _, _) = run_script!(e)?;
                         if code != 0 {
-                            return Err(RuntimeError::ProcessFailure);
+                            return Err(RuntimeError::ProcessFailure(e.to_string(), code));
                         }
                     }
                     InternalCommand::MakeFile(f) => {
-                        if std::fs::write(PathBuf::from(f), "").is_err() {
-                            return Err(RuntimeError::FailedFileRead);
-                        }
+                        std::fs::write(PathBuf::from(f), "")?;
                     }
                     InternalCommand::MakeDirectory(d) => {
-                        if std::fs::create_dir_all(PathBuf::from(d)).is_err() {
-                            return Err(RuntimeError::FailedFileRead);
-                        }
+                        std::fs::create_dir_all(PathBuf::from(d))?;
                     }
                     InternalCommand::SetEnvironmentVar(v, c) => {
                         std::env::set_var(v, c);
@@ -118,38 +109,21 @@ impl ExecutionPool {
                         println!("{t}");
                     }
                     InternalCommand::PrintFile(f) => {
-                        let file = match std::fs::read_to_string(f) {
-                            Ok(f) => f,
-                            Err(_) => {
-                                return Err(RuntimeError::FailedFileRead);
-                            }
-                        };
-
+                        let file = std::fs::read_to_string(f)?;
                         println!("{file}");
                     }
                     InternalCommand::RemoveDirectory(d) => {
-                        if std::fs::remove_dir_all(d).is_err() {
-                            return Err(RuntimeError::FailedFileRead);
-                        }
+                        std::fs::remove_dir_all(d)?;
                     }
                     InternalCommand::RemoveFile(f) => {
-                        if std::fs::remove_file(f).is_err() {
-                            return Err(RuntimeError::FailedFileRead);
-                        }
+                        std::fs::remove_file(f)?;
                     }
                     InternalCommand::CopyFile(s, d) => {
-                        if std::fs::copy(s, d).is_err() {
-                            return Err(RuntimeError::FailedFileRead);
-                        }
+                        std::fs::copy(s, d)?;
                     }
                     InternalCommand::MoveFile(s, d) => {
-                        if std::fs::copy(s, d).is_err() {
-                            return Err(RuntimeError::FailedFileRead);
-                        }
-
-                        if std::fs::remove_file(s).is_err() {
-                            return Err(RuntimeError::ProcessFailure);
-                        }
+                        std::fs::copy(s, d)?;
+                        std::fs::remove_file(s)?;
                     }
                 }
             }
@@ -162,7 +136,7 @@ impl ExecutionPool {
                 let def = match self.cmd_defs.get(command) {
                     Some(d) => d,
                     None => {
-                        return Err(RuntimeError::NonExsistentCommand);
+                        return Err(RuntimeError::NonExsistentCommand(command.to_owned()));
                     }
                 };
                 for cmd in &def.commands {

@@ -18,9 +18,9 @@ pub fn handle_parser_error(err: ParserError, file_name: String, content: String)
         .unwrap();
 }
 
-pub fn parse_script(main_script_name: impl Into<String>) -> Module {
+pub fn parse_script(main_script_name: impl Into<String>) -> Result<Module, ParserError> {
     let main_script_name = main_script_name.into();
-    let input = read_to_string(main_script_name.clone()).expect("Bad file read");
+    let input = read_to_string(main_script_name.clone())?;
     let tokens = tokenise(input.clone());
     let mut module = match parse_module(tokens) {
         Ok(m) => m,
@@ -37,7 +37,7 @@ pub fn parse_script(main_script_name: impl Into<String>) -> Module {
                 continue;
             }
         };
-        let ext_input = read_to_string(ext_path).expect("Bad file read");
+        let ext_input = read_to_string(ext_path)?;
         let ext_tokens = tokenise(ext_input);
         let ext_module = match parse_module(ext_tokens) {
             Ok(m) => m,
@@ -49,7 +49,7 @@ pub fn parse_script(main_script_name: impl Into<String>) -> Module {
         module.link_module(ext_module);
     }
 
-    module
+    Ok(module)
 }
 
 const FILE_EXTENSION: &str = ".august";

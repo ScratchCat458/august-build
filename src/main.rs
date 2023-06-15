@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ffi::OsStr, path::PathBuf};
+use std::{collections::HashMap, error::Error, ffi::OsStr, path::PathBuf};
 
 use august_build::{
     parsing::parse_script,
@@ -15,7 +15,7 @@ use walkdir::WalkDir;
 
 const DEFAULT_SCRIPT_PATH: &str = "main.august";
 
-fn main() {
+fn main() -> Result<(), Box<dyn Error>> {
     let cli = CLI::parse();
     std::fs::create_dir_all({
         let mut home = dirs::home_dir().unwrap();
@@ -94,7 +94,7 @@ fn main() {
                 .unwrap_or(DEFAULT_SCRIPT_PATH)
                 .to_string();
 
-            let module = parse_script(script);
+            let module = parse_script(script)?;
             let main_task = match module.pragmas.test {
                 Some(t) => t,
                 None => {
@@ -111,7 +111,7 @@ fn main() {
                 .unwrap_or(DEFAULT_SCRIPT_PATH)
                 .to_string();
 
-            let module = parse_script(script);
+            let module = parse_script(script)?;
             let main_task = match module.pragmas.build {
                 Some(t) => t,
                 None => {
@@ -128,7 +128,7 @@ fn main() {
                 .unwrap_or(DEFAULT_SCRIPT_PATH)
                 .to_string();
 
-            let module = parse_script(script);
+            let module = parse_script(script)?;
             ExecutionPool::new(module.tasks, module.cmd_defs).run(task_name);
         }
         CLICommand::Check { script } => {
@@ -138,7 +138,7 @@ fn main() {
                 .unwrap_or(DEFAULT_SCRIPT_PATH)
                 .to_string();
 
-            parse_script(script);
+            parse_script(script)?;
         }
         CLICommand::Inspect { script } => {
             let script = script
@@ -147,7 +147,7 @@ fn main() {
                 .unwrap_or(DEFAULT_SCRIPT_PATH)
                 .to_string();
 
-            let module = parse_script(script);
+            let module = parse_script(script)?;
 
             let mut table = Table::new();
 
@@ -163,6 +163,7 @@ fn main() {
             println!("{table}");
         }
     }
+    Ok(())
 }
 
 fn fmt_pragma(pragma: Pragma) -> String {
