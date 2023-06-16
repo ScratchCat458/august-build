@@ -196,7 +196,7 @@ impl fmt::Display for ParserError {
             Self::InvalidBody { scope, token: _, valid_body } => format!("Invalid Token Body: token contained invalid body content with parsing {scope}, consider replacing with {valid_body:?}"),
             Self::IoError(e) => format!("{e}")
         };
-        write!(f, "{m}")
+        writeln!(f, "{m}")
     }
 }
 
@@ -231,6 +231,6 @@ impl fmt::Display for ParserScope {
             Self::CommandDefinitionBody => "the body of a command definition",
         };
 
-        write!(f, "{}", m)
+        writeln!(f, "{}", m)
     }
 }

@@ -6,10 +6,34 @@ use crate::Command;
 
 #[derive(Debug)]
 pub enum RuntimeError {
-    NonExsistentCommand(Command),
+    NonExistentCommand(Command),
     ProcessFailure(String, i32),
     RunScriptError(run_script::ScriptError),
     IoError(std::io::Error),
+}
+
+impl fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let m = match self {
+            Self::NonExistentCommand(c) => {
+                let command = match c {
+                    Command::Local(n) => n.to_string(),
+                    Command::External(ns, n) => format!("{n} from {ns}"),
+                    Command::Internal(_) => panic!(),
+                };
+
+                format!("Unable to find the command {command}")
+            }
+            Self::ProcessFailure(p, ec) => {
+                format!("Process `{p}` failed with error code {ec}")
+            }
+            Self::RunScriptError(e) => {
+                format!("An issue regarding `run_script` occurred: {e}")
+            }
+            Self::IoError(e) => format!("{e}"),
+        };
+        writeln!(f, "{m}")
+    }
 }
 
 impl From<std::io::Error> for RuntimeError {
@@ -49,7 +73,7 @@ pub enum Notification {
 
 impl Notification {
     pub fn print(&self) {
-        println!("{self}");
+        eprintln!("{self}");
     }
 }
 

@@ -136,7 +136,7 @@ impl ExecutionPool {
                 let def = match self.cmd_defs.get(command) {
                     Some(d) => d,
                     None => {
-                        return Err(RuntimeError::NonExsistentCommand(command.to_owned()));
+                        return Err(RuntimeError::NonExistentCommand(command.to_owned()));
                     }
                 };
                 for cmd in &def.commands {
