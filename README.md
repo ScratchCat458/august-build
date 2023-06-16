@@ -2,7 +2,6 @@
 
 [![crates.io](https://img.shields.io/crates/v/august-build)](https://crates.io/crates/august-build)
 ![Workflow Status](https://github.com/ScratchCat458/august-build/actions/workflows/rust.yml/badge.svg)
-[![dependency status](https://deps.rs/crate/august-build/status.svg)](https://deps.rs/crate/august-build)
 ![License](https://img.shields.io/crates/l/august-build)
 
 ![August Logo](https://raw.githubusercontent.com/ScratchCat458/august-build/master/docs/images/August%20Build.svg) 
