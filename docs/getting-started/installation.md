@@ -4,12 +4,12 @@ August currently has two methods of installation, through Cargo and from source.
 Both require Rust to be installed.
 
 ## Via cargo
-```sh
+```
 cargo install august-build
 ```
 
 ## From source
-```sh
+```
 git clone https://github.com/ScratchCat458/august-build/
 cd august-build
 cargo build --release

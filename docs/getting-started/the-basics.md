@@ -108,17 +108,17 @@ cmddef lints {
 ## Runtime!
 
 To run your build script, open the terminal of your choice and run:
-```bash
+```
 august build
 ```
 To run just the test suite:
-```bash
+```
 august test
 ```
 
 If your create a task that isn't assigned to a pragma you can use the more general command below:
-```bash
+```
 august run build
 ```
 
-[Next Steps :material-arrow-right:](/getting-started/extending-august){ .md-button } 
+[Next Steps :material-arrow-right:](../extending-august){ .md-button } 

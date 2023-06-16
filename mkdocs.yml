@@ -75,6 +75,7 @@ nav:
     - getting-started/the-basics.md
     - getting-started/extending-august.md
     - getting-started/command-reference.md
+    - getting-started/cli.md
   - Modules:
     - modules/cargo.md
   - Implementation:
