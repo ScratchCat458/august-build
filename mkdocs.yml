@@ -2,6 +2,7 @@
 
 site_name: August Build
 site_url: https://august-build.web.app
+site_description: Task-based build system with a custom syntax and modularity features for all your artifact construction needs.
 repo_url: https://github.com/ScratchCat458/august-build
 repo_name: ScratchCat458/august-build
 copyright: Copyright &copy; 2023 Hayden Brown (ScratchCat458) under the MIT license
@@ -29,6 +30,7 @@ theme:
 
 plugins:
   - search
+  - social
 
 markdown_extensions:
   - admonition

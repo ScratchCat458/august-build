@@ -19,7 +19,7 @@ jobs:
         with:
           key: ${{ github.ref }}
           path: .cache
-      - run: pip install mkdocs-material
+      - run: pip install mkdocs-material pillow cairosvg
       - run: mkdocs build
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
