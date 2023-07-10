@@ -52,7 +52,7 @@ impl ExecutionPool {
     pub fn deploy_task(&mut self, task_name: impl Into<String>) -> Result<(), RuntimeError> {
         let task_name = task_name.into();
         let task = self.tasks.get(&task_name).expect("Bad developer").clone();
-        self.active_tasks.push(task_name.to_owned());
+        self.active_tasks.push(task_name.clone());
 
         Notification::TaskRun {
             task_name: task_name.clone(),
@@ -83,65 +83,60 @@ impl ExecutionPool {
     }
 
     pub fn run_command(&self, command: &Command) -> Result<(), RuntimeError> {
-        match command {
-            Command::Internal(ic) => {
-                Notification::CommandRun {
-                    command: command.to_owned(),
+        if let Command::Internal(ic) = command {
+            Notification::CommandRun {
+                command: command.clone(),
+            }
+            .print();
+
+            match ic {
+                InternalCommand::Exec(e) => {
+                    let (code, _, _) = run_script!(e)?;
+                    if code != 0 {
+                        return Err(RuntimeError::ProcessFailure(e.to_string(), code));
+                    }
                 }
-                .print();
-                match ic {
-                    InternalCommand::Exec(e) => {
-                        let (code, _, _) = run_script!(e)?;
-                        if code != 0 {
-                            return Err(RuntimeError::ProcessFailure(e.to_string(), code));
-                        }
-                    }
-                    InternalCommand::MakeFile(f) => {
-                        std::fs::write(PathBuf::from(f), "")?;
-                    }
-                    InternalCommand::MakeDirectory(d) => {
-                        std::fs::create_dir_all(PathBuf::from(d))?;
-                    }
-                    InternalCommand::SetEnvironmentVar(v, c) => {
-                        std::env::set_var(v, c);
-                    }
-                    InternalCommand::PrintString(t) => {
-                        println!("{t}");
-                    }
-                    InternalCommand::PrintFile(f) => {
-                        let file = std::fs::read_to_string(f)?;
-                        println!("{file}");
-                    }
-                    InternalCommand::RemoveDirectory(d) => {
-                        std::fs::remove_dir_all(d)?;
-                    }
-                    InternalCommand::RemoveFile(f) => {
-                        std::fs::remove_file(f)?;
-                    }
-                    InternalCommand::CopyFile(s, d) => {
-                        std::fs::copy(s, d)?;
-                    }
-                    InternalCommand::MoveFile(s, d) => {
-                        std::fs::copy(s, d)?;
-                        std::fs::remove_file(s)?;
-                    }
+                InternalCommand::MakeFile(f) => {
+                    std::fs::write(PathBuf::from(f), "")?;
+                }
+                InternalCommand::MakeDirectory(d) => {
+                    std::fs::create_dir_all(PathBuf::from(d))?;
+                }
+                InternalCommand::SetEnvironmentVar(v, c) => {
+                    std::env::set_var(v, c);
+                }
+                InternalCommand::PrintString(t) => {
+                    println!("{t}");
+                }
+                InternalCommand::PrintFile(f) => {
+                    let file = std::fs::read_to_string(f)?;
+                    println!("{file}");
+                }
+                InternalCommand::RemoveDirectory(d) => {
+                    std::fs::remove_dir_all(d)?;
+                }
+                InternalCommand::RemoveFile(f) => {
+                    std::fs::remove_file(f)?;
+                }
+                InternalCommand::CopyFile(s, d) => {
+                    std::fs::copy(s, d)?;
+                }
+                InternalCommand::MoveFile(s, d) => {
+                    std::fs::copy(s, d)?;
+                    std::fs::remove_file(s)?;
                 }
             }
-            _ => {
-                Notification::CommandDefinition {
-                    command: command.to_owned(),
-                }
-                .print();
+        } else {
+            Notification::CommandDefinition {
+                command: command.clone(),
+            }
+            .print();
 
-                let def = match self.cmd_defs.get(command) {
-                    Some(d) => d,
-                    None => {
-                        return Err(RuntimeError::NonExistentCommand(command.to_owned()));
-                    }
+            let Some(def) = self.cmd_defs.get(command) else {
+                    return Err(RuntimeError::NonExistentCommand(command.clone()));
                 };
-                for cmd in &def.commands {
-                    self.run_command(cmd)?;
-                }
+            for cmd in &def.commands {
+                self.run_command(cmd)?;
             }
         }
         Ok(())

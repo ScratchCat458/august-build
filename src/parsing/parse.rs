@@ -56,7 +56,7 @@ pub fn parse_task(cursor: &mut Peekable<Iter<Token>>) -> Result<(String, Task), 
     {
         return Err(ParserError::TokenMismatch {
             scope: ParserScope::Task,
-            token: cursor.next().unwrap().to_owned(),
+            token: cursor.next().unwrap().clone(),
             expected_token: Token::Ident("Task".to_string(), NULL_SPAN),
         });
     }
@@ -67,20 +67,19 @@ pub fn parse_task(cursor: &mut Peekable<Iter<Token>>) -> Result<(String, Task), 
     } else {
         return Err(ParserError::TokenMismatch {
             scope: ParserScope::Task,
-            token: cursor.next().unwrap().to_owned(),
+            token: cursor.next().unwrap().clone(),
             expected_token: Token::Ident("task_name".to_string(), NULL_SPAN),
         });
     }
     cursor.next();
 
-    // Dependencies
     if err_unwrap(cursor.peek(), ParserScope::Task)? == &&Token::Punct(':', NULL_SPAN) {
         cursor.next();
         if let Token::Node(node, s) = err_unwrap(cursor.peek(), ParserScope::Task)? {
             if node.encapsulator != EncapsulatorType::Square {
                 return Err(ParserError::EncapsulatorMismatch {
                     scope: ParserScope::Task,
-                    encap: node.encapsulator.to_owned(),
+                    encap: node.encapsulator.clone(),
                     expected_encap: EncapsulatorType::Square,
                     node_span: s.to_owned(),
                 });
@@ -107,7 +106,7 @@ pub fn parse_task(cursor: &mut Peekable<Iter<Token>>) -> Result<(String, Task), 
                 } else {
                     return Err(ParserError::TokenMismatch {
                         scope: ParserScope::Task,
-                        token: chunk[0].to_owned(),
+                        token: chunk[0].clone(),
                         expected_token: Token::Ident("dependency_name".to_string(), NULL_SPAN),
                     });
                 }
@@ -116,18 +115,17 @@ pub fn parse_task(cursor: &mut Peekable<Iter<Token>>) -> Result<(String, Task), 
         } else {
             return Err(ParserError::TokenMismatch {
                 scope: ParserScope::Task,
-                token: cursor.next().unwrap().to_owned(),
+                token: cursor.next().unwrap().clone(),
                 expected_token: Token::Node(Node::new(EncapsulatorType::Square), NULL_SPAN),
             });
         }
     }
 
-    // cmd body
     if let Token::Node(node, s) = err_unwrap(cursor.peek(), ParserScope::Task)? {
         if node.encapsulator != EncapsulatorType::Curly {
             return Err(ParserError::EncapsulatorMismatch {
                 scope: ParserScope::Task,
-                encap: node.encapsulator.to_owned(),
+                encap: node.encapsulator.clone(),
                 expected_encap: EncapsulatorType::Curly,
                 node_span: s.to_owned(),
             });
@@ -141,7 +139,7 @@ pub fn parse_task(cursor: &mut Peekable<Iter<Token>>) -> Result<(String, Task), 
     } else {
         return Err(ParserError::TokenMismatch {
             scope: ParserScope::Task,
-            token: cursor.next().unwrap().to_owned(),
+            token: cursor.next().unwrap().clone(),
             expected_token: Token::Node(Node::new(EncapsulatorType::Curly), NULL_SPAN),
         });
     }
@@ -160,7 +158,7 @@ pub fn parse_cmd_def(
     {
         return Err(ParserError::TokenMismatch {
             scope: ParserScope::CommandDefinition,
-            token: cursor.next().unwrap().to_owned(),
+            token: cursor.next().unwrap().clone(),
             expected_token: Token::Ident("cmddef".to_string(), NULL_SPAN),
         });
     }
@@ -171,18 +169,17 @@ pub fn parse_cmd_def(
     } else {
         return Err(ParserError::TokenMismatch {
             scope: ParserScope::CommandDefinition,
-            token: cursor.next().unwrap().to_owned(),
+            token: cursor.next().unwrap().clone(),
             expected_token: Token::Ident("cmddef_name".to_string(), NULL_SPAN),
         });
     }
     cursor.next();
 
-    // cmd body
     if let Token::Node(node, s) = err_unwrap(cursor.peek(), ParserScope::CommandDefinition)? {
         if node.encapsulator != EncapsulatorType::Curly {
             return Err(ParserError::EncapsulatorMismatch {
                 scope: ParserScope::CommandDefinition,
-                encap: node.encapsulator.to_owned(),
+                encap: node.encapsulator.clone(),
                 expected_encap: EncapsulatorType::Curly,
                 node_span: s.to_owned(),
             });
@@ -196,7 +193,7 @@ pub fn parse_cmd_def(
     } else {
         return Err(ParserError::TokenMismatch {
             scope: ParserScope::CommandDefinition,
-            token: cursor.next().unwrap().to_owned(),
+            token: cursor.next().unwrap().clone(),
             expected_token: Token::Node(Node::new(EncapsulatorType::Curly), NULL_SPAN),
         });
     }
@@ -221,52 +218,43 @@ pub fn parse_body_cmds(
         match chunk.len() {
             3 => {
                 // External
-                let cmd_namespace = match chunk[0].clone() {
-                    Token::Ident(i, _) => i,
-                    _ => {
+                let Token::Ident(cmd_namespace, _) = chunk[0].clone() else {
                         return Err(ParserError::TokenMismatch {
                             scope,
-                            token: chunk[0].to_owned(),
+                            token: chunk[0].clone(),
                             expected_token: Token::Ident(
                                 "command_namespace".to_string(),
                                 NULL_SPAN,
                             ),
                         });
-                    }
                 };
 
                 if chunk[1] != Token::Punct('.', NULL_SPAN) {
                     return Err(ParserError::TokenMismatch {
                         scope,
-                        token: chunk[1].to_owned(),
+                        token: chunk[1].clone(),
                         expected_token: Token::Punct('.', NULL_SPAN),
                     });
                 }
 
-                let cmd_name = match chunk[2].clone() {
-                    Token::Ident(i, _) => i,
-                    _ => {
-                        return Err(ParserError::TokenMismatch {
-                            scope,
-                            token: chunk[2].to_owned(),
-                            expected_token: Token::Ident("command_name".to_string(), NULL_SPAN),
-                        });
-                    }
+                let Token::Ident(cmd_name, _) = chunk[2].clone() else {
+                    return Err(ParserError::TokenMismatch {
+                        scope,
+                        token: chunk[2].clone(),
+                        expected_token: Token::Ident("command_name".to_string(), NULL_SPAN),
+                    });
                 };
 
                 commands.push(Command::External(cmd_namespace, cmd_name));
             }
             2 => {
                 //Internal with arguments
-                let cmd_name = match chunk[0].clone() {
-                    Token::Ident(i, _) => i,
-                    _ => {
-                        return Err(ParserError::TokenMismatch {
-                            scope,
-                            token: chunk[0].to_owned(),
-                            expected_token: Token::Ident("command_name".to_string(), NULL_SPAN),
-                        });
-                    }
+                let Token::Ident(cmd_name, _) = chunk[0].clone() else {
+                    return Err(ParserError::TokenMismatch {
+                        scope,
+                        token: chunk[0].clone(),
+                        expected_token: Token::Ident("command_name".to_string(), NULL_SPAN),
+                    });
                 };
 
                 let (arg_node, arg_span) = match chunk[1].clone() {
@@ -310,7 +298,7 @@ pub fn parse_body_cmds(
                         } else {
                             return Err(ParserError::TokenMismatch {
                                 scope,
-                                token: arg_node.children[0].to_owned(),
+                                token: arg_node.children[0].clone(),
                                 expected_token: Token::StringLiteral(
                                     "shell --command".to_string(),
                                     NULL_SPAN,
@@ -328,40 +316,34 @@ pub fn parse_body_cmds(
                             });
                         }
 
-                        let var_name = match arg_node.children[0].clone() {
-                            Token::StringLiteral(l, _) => l,
-                            _ => {
-                                return Err(ParserError::TokenMismatch {
-                                    scope,
-                                    token: arg_node.children[0].to_owned(),
-                                    expected_token: Token::StringLiteral(
-                                        "ENVVARNAME".to_string(),
-                                        NULL_SPAN,
-                                    ),
-                                });
-                            }
+                        let Token::StringLiteral(var_name, _) = arg_node.children[0].clone() else {
+                            return Err(ParserError::TokenMismatch {
+                                scope,
+                                token: arg_node.children[0].clone(),
+                                expected_token: Token::StringLiteral(
+                                    "ENVVARNAME".to_string(),
+                                    NULL_SPAN,
+                                ),
+                            });
                         };
 
                         if arg_node.children[1] != Token::Punct(',', NULL_SPAN) {
                             return Err(ParserError::TokenMismatch {
                                 scope,
-                                token: arg_node.children[1].to_owned(),
+                                token: arg_node.children[1].clone(),
                                 expected_token: Token::Punct(',', NULL_SPAN),
                             });
                         }
 
-                        let var_contents = match arg_node.children[2].clone() {
-                            Token::StringLiteral(l, _) => l,
-                            _ => {
-                                return Err(ParserError::TokenMismatch {
-                                    scope,
-                                    token: arg_node.children[2].to_owned(),
-                                    expected_token: Token::StringLiteral(
-                                        "envvar_contents".to_string(),
-                                        NULL_SPAN,
-                                    ),
-                                });
-                            }
+                        let Token::StringLiteral(var_contents, _) = arg_node.children[2].clone() else {
+                            return Err(ParserError::TokenMismatch {
+                                scope,
+                                token: arg_node.children[2].clone(),
+                                expected_token: Token::StringLiteral(
+                                    "envvar_contents".to_string(),
+                                    NULL_SPAN,
+                                ),
+                            });
                         };
 
                         commands.push(Command::Internal(InternalCommand::SetEnvironmentVar(
@@ -384,7 +366,7 @@ pub fn parse_body_cmds(
                         } else {
                             return Err(ParserError::TokenMismatch {
                                 scope,
-                                token: arg_node.children[0].to_owned(),
+                                token: arg_node.children[0].clone(),
                                 expected_token: Token::StringLiteral(
                                     "some text".to_string(),
                                     NULL_SPAN,
@@ -407,7 +389,7 @@ pub fn parse_body_cmds(
                         } else {
                             return Err(ParserError::TokenMismatch {
                                 scope,
-                                token: arg_node.children[0].to_owned(),
+                                token: arg_node.children[0].clone(),
                                 expected_token: Token::StringLiteral(
                                     "file_name".to_string(),
                                     NULL_SPAN,
@@ -430,7 +412,7 @@ pub fn parse_body_cmds(
                         } else {
                             return Err(ParserError::TokenMismatch {
                                 scope,
-                                token: arg_node.children[0].to_owned(),
+                                token: arg_node.children[0].clone(),
                                 expected_token: Token::StringLiteral(
                                     "directory".to_string(),
                                     NULL_SPAN,
@@ -453,7 +435,7 @@ pub fn parse_body_cmds(
                         } else {
                             return Err(ParserError::TokenMismatch {
                                 scope,
-                                token: arg_node.children[0].to_owned(),
+                                token: arg_node.children[0].clone(),
                                 expected_token: Token::StringLiteral(
                                     "file_name".to_string(),
                                     NULL_SPAN,
@@ -476,7 +458,7 @@ pub fn parse_body_cmds(
                         } else {
                             return Err(ParserError::TokenMismatch {
                                 scope,
-                                token: arg_node.children[0].to_owned(),
+                                token: arg_node.children[0].clone(),
                                 expected_token: Token::StringLiteral(
                                     "directory".to_string(),
                                     NULL_SPAN,
@@ -499,7 +481,7 @@ pub fn parse_body_cmds(
                         } else {
                             return Err(ParserError::TokenMismatch {
                                 scope,
-                                token: arg_node.children[0].to_owned(),
+                                token: arg_node.children[0].clone(),
                                 expected_token: Token::StringLiteral(
                                     "file_name".to_string(),
                                     NULL_SPAN,
@@ -516,41 +498,34 @@ pub fn parse_body_cmds(
                                 chunk_span: arg_span,
                             });
                         }
-
-                        let source_path = match arg_node.children[0].clone() {
-                            Token::StringLiteral(l, _) => l,
-                            _ => {
-                                return Err(ParserError::TokenMismatch {
-                                    scope,
-                                    token: arg_node.children[0].to_owned(),
-                                    expected_token: Token::StringLiteral(
-                                        "source_path".to_string(),
-                                        NULL_SPAN,
-                                    ),
-                                });
-                            }
+                        let Token::StringLiteral(source_path, _) = arg_node.children[0].clone() else {
+                            return Err(ParserError::TokenMismatch {
+                                scope,
+                                token: arg_node.children[0].clone(),
+                                expected_token: Token::StringLiteral(
+                                    "source_path".to_string(),
+                                    NULL_SPAN,
+                                ),
+                            });
                         };
 
                         if arg_node.children[1] != Token::Punct(',', NULL_SPAN) {
                             return Err(ParserError::TokenMismatch {
                                 scope,
-                                token: arg_node.children[1].to_owned(),
+                                token: arg_node.children[1].clone(),
                                 expected_token: Token::Punct(',', NULL_SPAN),
                             });
                         }
 
-                        let destination_path = match arg_node.children[2].clone() {
-                            Token::StringLiteral(l, _) => l,
-                            _ => {
-                                return Err(ParserError::TokenMismatch {
-                                    scope,
-                                    token: arg_node.children[2].to_owned(),
-                                    expected_token: Token::StringLiteral(
-                                        "destination_path".to_string(),
-                                        NULL_SPAN,
-                                    ),
-                                });
-                            }
+                        let Token::StringLiteral(destination_path, _) = arg_node.children[2].clone() else {
+                            return Err(ParserError::TokenMismatch {
+                                scope,
+                                token: arg_node.children[2].clone(),
+                                expected_token: Token::StringLiteral(
+                                    "destination_path".to_string(),
+                                    NULL_SPAN,
+                                ),
+                            });
                         };
 
                         commands.push(Command::Internal(InternalCommand::CopyFile(
@@ -568,40 +543,34 @@ pub fn parse_body_cmds(
                             });
                         }
 
-                        let source_path = match arg_node.children[0].clone() {
-                            Token::StringLiteral(l, _) => l,
-                            _ => {
-                                return Err(ParserError::TokenMismatch {
-                                    scope,
-                                    token: arg_node.children[0].to_owned(),
-                                    expected_token: Token::StringLiteral(
-                                        "source_path".to_string(),
-                                        NULL_SPAN,
-                                    ),
-                                });
-                            }
+                        let Token::StringLiteral(source_path, _) = arg_node.children[0].clone() else {
+                            return Err(ParserError::TokenMismatch {
+                                scope,
+                                token: arg_node.children[0].clone(),
+                                expected_token: Token::StringLiteral(
+                                    "source_path".to_string(),
+                                    NULL_SPAN,
+                                ),
+                            });
                         };
 
                         if arg_node.children[1] != Token::Punct(',', NULL_SPAN) {
                             return Err(ParserError::TokenMismatch {
                                 scope,
-                                token: arg_node.children[1].to_owned(),
+                                token: arg_node.children[1].clone(),
                                 expected_token: Token::Punct(',', NULL_SPAN),
                             });
                         }
 
-                        let destination_path = match arg_node.children[2].clone() {
-                            Token::StringLiteral(l, _) => l,
-                            _ => {
-                                return Err(ParserError::TokenMismatch {
-                                    scope,
-                                    token: arg_node.children[2].to_owned(),
-                                    expected_token: Token::StringLiteral(
-                                        "destination_path".to_string(),
-                                        NULL_SPAN,
-                                    ),
-                                });
-                            }
+                        let Token::StringLiteral(destination_path, _) = arg_node.children[2].clone() else {
+                            return Err(ParserError::TokenMismatch {
+                                scope,
+                                token: arg_node.children[2].clone(),
+                                expected_token: Token::StringLiteral(
+                                    "destination_path".to_string(),
+                                    NULL_SPAN,
+                                ),
+                            });
                         };
 
                         commands.push(Command::Internal(InternalCommand::MoveFile(
@@ -612,7 +581,7 @@ pub fn parse_body_cmds(
                     _ => {
                         return Err(ParserError::InvalidBody {
                             scope,
-                            token: chunk[0].to_owned(),
+                            token: chunk[0].clone(),
                             valid_body: vec!["exec".to_string()],
                         });
                     }
@@ -645,7 +614,7 @@ pub fn parse_pragma(
     if err_unwrap(cursor.peek(), ParserScope::Pragma)? != &&Token::Punct('#', NULL_SPAN) {
         return Err(ParserError::TokenMismatch {
             scope: ParserScope::Pragma,
-            token: cursor.next().unwrap().to_owned(),
+            token: cursor.next().unwrap().clone(),
             expected_token: Token::Punct('#', NULL_SPAN),
         });
     }
@@ -664,7 +633,7 @@ pub fn parse_pragma(
                     } else {
                         return Err(ParserError::TokenMismatch {
                             scope: ParserScope::Pragma,
-                            token: cursor.next().unwrap().to_owned(),
+                            token: cursor.next().unwrap().clone(),
                             expected_token: Token::Ident("job_name".to_string(), NULL_SPAN),
                         });
                     }
@@ -677,7 +646,7 @@ pub fn parse_pragma(
                     } else {
                         return Err(ParserError::TokenMismatch {
                             scope: ParserScope::Pragma,
-                            token: cursor.next().unwrap().to_owned(),
+                            token: cursor.next().unwrap().clone(),
                             expected_token: Token::Ident("job_name".to_string(), NULL_SPAN),
                         });
                     }
@@ -685,14 +654,14 @@ pub fn parse_pragma(
                 Token::Ident(_, _) => {
                     return Err(ParserError::InvalidBody {
                         scope: ParserScope::Pragma,
-                        token: cursor.next().unwrap().to_owned(),
+                        token: cursor.next().unwrap().clone(),
                         valid_body: vec![String::from("test"), String::from("build")],
                     });
                 }
                 _ => {
                     return Err(ParserError::TokenMismatch {
                         scope: ParserScope::Pragma,
-                        token: cursor.next().unwrap().to_owned(),
+                        token: cursor.next().unwrap().clone(),
                         expected_token: Token::Ident("build".to_string(), NULL_SPAN),
                     });
                 }
@@ -706,7 +675,7 @@ pub fn parse_pragma(
             } else {
                 return Err(ParserError::TokenMismatch {
                     scope: ParserScope::Pragma,
-                    token: cursor.next().unwrap().to_owned(),
+                    token: cursor.next().unwrap().clone(),
                     expected_token: Token::Ident("module_name".to_string(), NULL_SPAN),
                 });
             }
@@ -714,14 +683,14 @@ pub fn parse_pragma(
         Token::Ident(_, _) => {
             return Err(ParserError::InvalidBody {
                 scope: ParserScope::Pragma,
-                token: cursor.next().unwrap().to_owned(),
+                token: cursor.next().unwrap().clone(),
                 valid_body: vec![String::from("pragma"), String::from("link")],
             });
         }
         _ => {
             return Err(ParserError::TokenMismatch {
                 scope: ParserScope::Pragma,
-                token: cursor.next().unwrap().to_owned(),
+                token: cursor.next().unwrap().clone(),
                 expected_token: Token::Ident("pragma".to_string(), NULL_SPAN),
             });
         }
@@ -734,18 +703,18 @@ pub fn parse_namespace(cursor: &mut Peekable<Iter<Token>>) -> Result<String, Par
     if err_unwrap(cursor.peek(), ParserScope::Namespace)? != &&Token::Punct('@', NULL_SPAN) {
         return Err(ParserError::TokenMismatch {
             scope: ParserScope::Namespace,
-            token: cursor.next().unwrap().to_owned(),
+            token: cursor.next().unwrap().clone(),
             expected_token: Token::Punct('@', NULL_SPAN),
         });
     }
     cursor.next();
 
     if let Token::Ident(i, _) = err_unwrap(cursor.peek(), ParserScope::Namespace)? {
-        Ok(i.to_owned())
+        Ok(i.clone())
     } else {
         Err(ParserError::TokenMismatch {
             scope: ParserScope::Namespace,
-            token: cursor.next().unwrap().to_owned(),
+            token: cursor.next().unwrap().clone(),
             expected_token: Token::Ident(String::from("namespace"), NULL_SPAN),
         })
     }

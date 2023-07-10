@@ -73,10 +73,7 @@ impl ParserError {
     }
 
     fn out_of_tokens_impl(&self, file_name: String) -> Report<(String, Range<usize>)> {
-        let scope = match self {
-            Self::OutOfTokens { scope } => scope,
-            _ => panic!("Developer did a no no!"),
-        };
+        let Self::OutOfTokens { scope } = self else { panic!("Developer did a no no!") };
 
         Report::build(ReportKind::Error, file_name, 0)
             .with_code(9999)
@@ -86,14 +83,11 @@ impl ParserError {
     }
 
     fn token_mismatch_impl(&self, file_name: String) -> Report<(String, Range<usize>)> {
-        let (scope, token, expected_token) = match self {
-            Self::TokenMismatch {
+        let Self::TokenMismatch {
                 scope,
                 token,
                 expected_token,
-            } => (scope, token, expected_token),
-            _ => panic!("Developer did a no no!"),
-        };
+            } = self else { panic!("Developer did a no no!") };
 
         Report::build(ReportKind::Error, file_name.clone(), token.span_start())
             .with_code(1)
@@ -114,15 +108,12 @@ impl ParserError {
     }
 
     fn encapsulator_mismatch_impl(&self, file_name: String) -> Report<(String, Range<usize>)> {
-        let (scope, encap, expected_encap, node_span) = match self {
-            Self::EncapsulatorMismatch {
+        let Self::EncapsulatorMismatch {
                 scope,
                 encap,
                 expected_encap,
                 node_span,
-            } => (scope, encap, expected_encap, node_span),
-            _ => panic!("Developer did a no no!"),
-        };
+            } = self else { panic!("Developer did a no no!") };
 
         Report::build(ReportKind::Error, file_name.clone(), node_span.0)
             .with_code(2)
@@ -137,15 +128,12 @@ impl ParserError {
     }
 
     fn bad_chunk_length_impl(&self, file_name: String) -> Report<(String, Range<usize>)> {
-        let (scope, len, valid_len, chunk_span) = match self {
-            Self::BadChunkLength {
+        let Self::BadChunkLength {
                 scope,
                 len,
                 valid_len,
                 chunk_span,
-            } => (scope, len, valid_len, chunk_span),
-            _ => panic!("Developer did a no no!"),
-        };
+            } = self else { panic!("Developer did a no no!") };
 
         Report::build(ReportKind::Error, file_name.clone(), chunk_span.0)
             .with_code(4)
@@ -159,14 +147,11 @@ impl ParserError {
     }
 
     fn invalid_body_impl(&self, file_name: String) -> Report<(String, Range<usize>)> {
-        let (scope, token, valid_body) = match self {
-            Self::InvalidBody {
+        let Self::InvalidBody {
                 scope,
                 token,
                 valid_body,
-            } => (scope, token, valid_body),
-            _ => panic!("Developer did a no no!"),
-        };
+            } = self else { panic!("Developer did a no no!") };
 
         Report::build(ReportKind::Error, file_name.clone(), token.span_start())
             .with_code(8)
@@ -231,6 +216,6 @@ impl fmt::Display for ParserScope {
             Self::CommandDefinitionBody => "the body of a command definition",
         };
 
-        writeln!(f, "{}", m)
+        writeln!(f, "{m}")
     }
 }

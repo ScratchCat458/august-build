@@ -18,34 +18,34 @@ pub enum Token {
 impl Token {
     pub fn span(&self) -> Range<usize> {
         match self {
-            Self::Ident(_, s) => s.0..s.1,
-            Self::Punct(_, s) => s.0..s.1,
-            Self::StringLiteral(_, s) => s.0..s.1,
-            Self::IntegerLiteral(_, s) => s.0..s.1,
-            Self::BooleanLiteral(_, s) => s.0..s.1,
-            Self::Node(_, s) => s.0..s.1,
+            Self::Ident(_, s)
+            | Self::Punct(_, s)
+            | Self::StringLiteral(_, s)
+            | Self::IntegerLiteral(_, s)
+            | Self::BooleanLiteral(_, s)
+            | Self::Node(_, s) => s.0..s.1,
         }
     }
 
     pub fn span_start(&self) -> usize {
         match self {
-            Self::Ident(_, s) => s.0,
-            Self::Punct(_, s) => s.0,
-            Self::StringLiteral(_, s) => s.0,
-            Self::IntegerLiteral(_, s) => s.0,
-            Self::BooleanLiteral(_, s) => s.0,
-            Self::Node(_, s) => s.0,
+            Self::Ident(_, s)
+            | Self::Punct(_, s)
+            | Self::StringLiteral(_, s)
+            | Self::IntegerLiteral(_, s)
+            | Self::BooleanLiteral(_, s)
+            | Self::Node(_, s) => s.0,
         }
     }
 
     pub fn span_end(&self) -> usize {
         match self {
-            Self::Ident(_, s) => s.1,
-            Self::Punct(_, s) => s.1,
-            Self::StringLiteral(_, s) => s.1,
-            Self::IntegerLiteral(_, s) => s.1,
-            Self::BooleanLiteral(_, s) => s.1,
-            Self::Node(_, s) => s.1,
+            Self::Ident(_, s)
+            | Self::Punct(_, s)
+            | Self::StringLiteral(_, s)
+            | Self::IntegerLiteral(_, s)
+            | Self::BooleanLiteral(_, s)
+            | Self::Node(_, s) => s.1,
         }
     }
 
@@ -241,17 +241,14 @@ fn classify(cursor: &mut Peekable<Enumerate<Chars>>) -> Option<Token> {
 
             loop {
                 let (sp, ch) = cursor.peek().unwrap();
-                match ch {
-                    '"' => {
-                        ending_pos = sp.to_owned();
-                        cursor.next();
-                        break;
-                    }
-                    _ => {
-                        str_lit.push(*ch);
-                        cursor.next();
-                    }
+                if let '"' = ch {
+                    ending_pos = sp.to_owned();
+                    cursor.next();
+                    break;
                 }
+
+                str_lit.push(*ch);
+                cursor.next();
             }
             Some(Token::StringLiteral(
                 str_lit,
@@ -264,15 +261,13 @@ fn classify(cursor: &mut Peekable<Enumerate<Chars>>) -> Option<Token> {
 
             loop {
                 let (sp, ch) = cursor.peek().unwrap();
-                match ch {
-                    '0'..='9' => {
-                        num_str.push(ch.to_owned());
-                        cursor.next();
-                    }
-                    _ => {
-                        ending_pos = sp.to_owned();
-                        break;
-                    }
+
+                if let '0'..='9' = ch {
+                    num_str.push(ch.to_owned());
+                    cursor.next();
+                } else {
+                    ending_pos = sp.to_owned();
+                    break;
                 }
             }
 

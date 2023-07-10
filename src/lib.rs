@@ -43,22 +43,19 @@ impl Module {
     }
 
     pub fn link_module(&mut self, ext_module: Module) -> &mut Self {
-        if !self.links.contains(&ext_module.namespace) {
-            panic!(
-                "Attempted to link an already linked or non specified module.
+        assert!(
+            self.links.contains(&ext_module.namespace),
+            "Attempted to link an already linked or non specified module.
 Likely a developer end issue but double-check your build scripts and dependencies just in case :)"
-            );
-        }
+        );
+
         self.links.remove(&ext_module.namespace);
 
         let mut cmd_defs = HashMap::new();
         for (k, v) in ext_module.cmd_defs {
-            let name = match k {
-                Command::Local(n) => n,
-                _ => unreachable!(),
-            };
+            let Command::Local(name) = k else { unreachable!() };
 
-            cmd_defs.insert(Command::External(ext_module.namespace.to_owned(), name), v);
+            cmd_defs.insert(Command::External(ext_module.namespace.clone(), name), v);
         }
 
         self.cmd_defs.extend(cmd_defs);

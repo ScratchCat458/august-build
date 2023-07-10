@@ -102,9 +102,8 @@ impl fmt::Display for Notification {
                 )
             }
             Self::CommandRun { command } => {
-                let ic = match command {
-                    Command::Internal(ic) => ic,
-                    _ => panic!(),
+                let Command::Internal(ic) = command else {
+                    panic!("Not an internal command")
                 };
 
                 format!(
@@ -114,9 +113,9 @@ impl fmt::Display for Notification {
             }
             Self::CommandDefinition { command } => {
                 let c = match command {
-                    Command::Local(l) => l.to_owned(),
+                    Command::Local(l) => l.clone(),
                     Command::External(n, e) => format!("{n}.{e}"),
-                    _ => panic!(),
+                    Command::Internal(_) => panic!("Not a CommandDefinition"),
                 };
 
                 format!(
