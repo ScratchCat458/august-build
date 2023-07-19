@@ -8,7 +8,7 @@ Task build {
   exec("cargo build");
 }
 
-Task test {
+Tsk test {
   lints;
   exec("cargo test");
 }
