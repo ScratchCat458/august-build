@@ -6,9 +6,12 @@ use comfy_table::{modifiers::UTF8_ROUND_CORNERS, presets::UTF8_FULL, Table};
 use owo_colors::OwoColorize;
 use walkdir::WalkDir;
 
-use crate::{parsing::parse_script, Command, CommandDefinition, Pragma, Task};
+use crate::{
+    parsing::{error::ParserError, parse_script},
+    Command, CommandDefinition, Pragma, Task,
+};
 
-use super::ExecutionPool;
+use super::{output::RuntimeError, ExecutionPool};
 
 #[derive(Parser, Debug, Clone, PartialEq, Eq)]
 #[command(author, version, about)]
@@ -64,7 +67,7 @@ pub enum CLICommand {
 
 const DEFAULT_SCRIPT_PATH: &str = "main.august";
 
-pub fn run(cli: CLI) -> Result<(), Box<dyn Error>> {
+pub fn run(cli: CLI) -> Result<(), CLIError> {
     match cli.command {
         CLICommand::Info => {
             let global_module_dir = {
@@ -202,6 +205,37 @@ pub fn run(cli: CLI) -> Result<(), Box<dyn Error>> {
 
     Ok(())
 }
+
+#[derive(Debug)]
+pub enum CLIError {
+    ParserError(ParserError),
+    RuntimeError(RuntimeError),
+}
+
+impl From<ParserError> for CLIError {
+    fn from(value: ParserError) -> Self {
+        Self::ParserError(value)
+    }
+}
+
+impl From<RuntimeError> for CLIError {
+    fn from(value: RuntimeError) -> Self {
+        Self::RuntimeError(value)
+    }
+}
+
+impl std::fmt::Display for CLIError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let m = match self {
+            Self::ParserError(e) => format!("Parser Error: {e}"),
+            Self::RuntimeError(e) => format!("Runtime Error: {e}"),
+        };
+
+        write!(f, "{m}")
+    }
+}
+
+impl Error for CLIError {}
 
 fn fmt_pragma(pragma: Pragma) -> String {
     format!(

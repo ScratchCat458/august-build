@@ -1,6 +1,8 @@
 use std::iter::Peekable;
 use std::slice::Iter;
 
+use tracing::trace;
+
 use crate::{Command, CommandDefinition, InternalCommand, Module, Task};
 
 use super::error::{ParserError, ParserScope};
@@ -19,7 +21,7 @@ pub fn parse_module(tokens: Vec<Token>) -> Result<Module, ParserError> {
     let mut cursor = tokens.iter().peekable();
     let mut module = Module::default();
 
-    while let Some(t) = cursor.peek() {
+    while let Some(&t) = cursor.peek() {
         match t {
             Token::Ident(i, _) if i == &"Task".to_string() => {
                 let (task_name, task) = parse_task(&mut cursor)?;
@@ -29,6 +31,13 @@ pub fn parse_module(tokens: Vec<Token>) -> Result<Module, ParserError> {
                 let (name, definition) = parse_cmd_def(&mut cursor)?;
                 module.cmd_def(name, definition);
             }
+            Token::Ident(i, _) if i != &"Task".to_string() || i != &"cmd_def".to_string() => {
+                return Err(ParserError::InvalidBody {
+                    scope: ParserScope::Global,
+                    token: t.clone(),
+                    valid_body: vec!["Task".into(), "cmddef".into()],
+                });
+            }
             Token::Punct('#', _) => {
                 // for both link and pragma
                 parse_pragma(&mut cursor, &mut module)?;
@@ -37,8 +46,19 @@ pub fn parse_module(tokens: Vec<Token>) -> Result<Module, ParserError> {
                 let namespace = parse_namespace(&mut cursor)?;
                 module.namespace(namespace);
             }
+            Token::Punct(p, _) if p != &'#' || p != &'@' => {
+                return Err(ParserError::InvalidBody {
+                    scope: ParserScope::Global,
+                    token: t.clone(),
+                    valid_body: vec!["#".into(), "@".into()],
+                });
+            }
             _ => {
-                cursor.next();
+                return Err(ParserError::TokenMismatch {
+                    scope: ParserScope::Global,
+                    token: t.clone(),
+                    expected_token: Token::Ident(String::from("Task"), NULL_SPAN),
+                });
             }
         }
     }
@@ -143,6 +163,7 @@ pub fn parse_task(cursor: &mut Peekable<Iter<Token>>) -> Result<(String, Task), 
             expected_token: Token::Node(Node::new(EncapsulatorType::Curly), NULL_SPAN),
         });
     }
+    cursor.next();
     Ok((name, task))
 }
 
@@ -197,6 +218,7 @@ pub fn parse_cmd_def(
             expected_token: Token::Node(Node::new(EncapsulatorType::Curly), NULL_SPAN),
         });
     }
+    cursor.next();
 
     Ok((Command::Local(name), cmd_def))
 }
@@ -710,6 +732,7 @@ pub fn parse_namespace(cursor: &mut Peekable<Iter<Token>>) -> Result<String, Par
     cursor.next();
 
     if let Token::Ident(i, _) = err_unwrap(cursor.peek(), ParserScope::Namespace)? {
+        cursor.next();
         Ok(i.clone())
     } else {
         Err(ParserError::TokenMismatch {
