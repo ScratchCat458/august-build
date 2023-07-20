@@ -17,6 +17,8 @@ named-task
 identsdonthavealimitonlengthbythewaybutmaybedontmakeyourfunctionnamestoolong
 ```
 
+:octicons-tag-24: 0.4.0 added `~` as an Ident character for the `exec` short-hand.
+
 ## Punct(uation)
 Single character tokens, often used for show relation between tokens.
 ```august

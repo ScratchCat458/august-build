@@ -1,4 +1,4 @@
-use std::{collections::HashSet, fmt};
+use std::{collections::HashSet, error::Error, fmt};
 
 use owo_colors::OwoColorize;
 
@@ -35,6 +35,8 @@ impl fmt::Display for RuntimeError {
         writeln!(f, "{m}")
     }
 }
+
+impl Error for RuntimeError {}
 
 impl From<std::io::Error> for RuntimeError {
     fn from(value: std::io::Error) -> Self {
@@ -131,7 +133,7 @@ impl fmt::Display for Notification {
             }
             Self::Fail { error } => {
                 format!(
-                    "{} An error occurred during runtime: {error:?}",
+                    "{} An error occurred during runtime: {error}",
                     "    FAIL ✕   ".black().on_red()
                 )
             }

@@ -11,6 +11,14 @@
 exec(shell_cmd: StringLiteral);
 ```
 
+:octicons-tag-24: 0.4.0
+
+This version introduced `~` short-hand syntax for the `exec` command.
+Argument structure is maintained.
+```august
+~(shell_cmd:StringLiteral);
+```
+
 ## Set Environment Variable
 :octicons-tag-24: 0.1.0
 ```august

@@ -7,7 +7,7 @@ use owo_colors::OwoColorize;
 use walkdir::WalkDir;
 
 use crate::{
-    parsing::{error::ParserError, parse_script},
+    parsing::{error::ParserErrorHandler, parse_script},
     Command, CommandDefinition, Pragma, Task,
 };
 
@@ -208,12 +208,12 @@ pub fn run(cli: CLI) -> Result<(), CLIError> {
 
 #[derive(Debug)]
 pub enum CLIError {
-    ParserError(ParserError),
+    ParserError(ParserErrorHandler),
     RuntimeError(RuntimeError),
 }
 
-impl From<ParserError> for CLIError {
-    fn from(value: ParserError) -> Self {
+impl From<ParserErrorHandler> for CLIError {
+    fn from(value: ParserErrorHandler) -> Self {
         Self::ParserError(value)
     }
 }
@@ -227,8 +227,8 @@ impl From<RuntimeError> for CLIError {
 impl std::fmt::Display for CLIError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let m = match self {
-            Self::ParserError(e) => format!("Parser Error: {e}"),
-            Self::RuntimeError(e) => format!("Runtime Error: {e}"),
+            Self::ParserError(e) => format!("{e}"),
+            Self::RuntimeError(e) => format!("{e}"),
         };
 
         write!(f, "{m}")

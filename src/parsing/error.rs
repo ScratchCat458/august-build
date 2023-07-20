@@ -1,10 +1,151 @@
-use ariadne::{Label, Report, ReportKind};
+use ariadne::{Label, Report, ReportKind, Source};
 use std::{
     fmt::{self, Debug},
     ops::Range,
 };
 
 use super::token::{EncapsulatorType, Span, Token};
+
+#[derive(Debug)]
+pub struct ParserErrorHandler {
+    pub file_name: String,
+    pub content: String,
+    pub error: ParserError,
+}
+
+impl ParserErrorHandler {
+    pub fn from_err(error: ParserError, file_name: String, content: String) -> Self {
+        Self {
+            file_name,
+            content,
+            error,
+        }
+    }
+
+    pub fn report_gen(&self) -> Report<(String, Range<usize>)> {
+        match &self.error {
+            ParserError::OutOfTokens { .. } => self.out_of_tokens_impl(),
+            ParserError::TokenMismatch { .. } => self.token_mismatch_impl(),
+            ParserError::EncapsulatorMismatch { .. } => self.encapsulator_mismatch_impl(),
+            ParserError::BadChunkLength { .. } => self.bad_chunk_length_impl(),
+            ParserError::InvalidBody { .. } => self.invalid_body_impl(),
+            ParserError::IoError(e) => Report::build(ReportKind::Error, "_".to_string(), 0)
+                .with_message(e)
+                .finish(),
+        }
+    }
+
+    fn out_of_tokens_impl(&self) -> Report<(String, Range<usize>)> {
+        let ParserError::OutOfTokens { ref scope } = self.error else { panic!("Developer passed wrong error type!") };
+
+        Report::build(ReportKind::Error, &self.file_name, 0)
+            .with_code(9999)
+            .with_message(format!("Ran of out tokens while parsing {scope}."))
+            .with_help("This should never occur. Check for incomplete blocks or statements.")
+            .finish()
+    }
+
+    fn token_mismatch_impl(&self) -> Report<(String, Range<usize>)> {
+        let ParserError::TokenMismatch {
+                ref scope,
+                ref token,
+                ref expected_token,
+            } = self.error else { panic!("Developer passed wrong error type!") };
+
+        Report::build(
+            ReportKind::Error,
+            self.file_name.clone(),
+            token.span_start(),
+        )
+        .with_code(1)
+        .with_message(format!(
+            "Token Mismatch: expected {}, found {} while parsing {scope}",
+            expected_token.token_name(),
+            token.token_name()
+        ))
+        .with_label(
+            Label::new((self.file_name.clone(), token.span()))
+                .with_message(format!(
+                    "Consider replacing with {}",
+                    expected_token.token_name()
+                ))
+                .with_color(ariadne::Color::Red),
+        )
+        .finish()
+    }
+
+    fn encapsulator_mismatch_impl(&self) -> Report<(String, Range<usize>)> {
+        let ParserError::EncapsulatorMismatch {
+                ref scope,
+                ref encap,
+                ref expected_encap,
+                node_span,
+            } = self.error else { panic!("Developer passed wrong error type!") };
+
+        Report::build(ReportKind::Error, self.file_name.clone(), node_span.0)
+            .with_code(2)
+            .with_message(format!(
+                "Encapsulator Mismatch: expected {expected_encap}, found {encap} while parsing {scope}"
+            ))
+            .with_label(
+                Label::new((self.file_name.clone(), node_span.0..node_span.1))
+                    .with_message(format!("Consider replacing with {expected_encap}")).with_color(ariadne::Color::Cyan)
+            )
+            .finish()
+    }
+
+    fn bad_chunk_length_impl(&self) -> Report<(String, Range<usize>)> {
+        let ParserError::BadChunkLength {
+                ref scope,
+                len,
+                ref valid_len,
+                chunk_span,
+            } = self.error else { panic!("Developer passed wrong error type!") };
+
+        Report::build(ReportKind::Error, self.file_name.clone(), chunk_span.0)
+            .with_code(4)
+            .with_message(format!("Bad Chunk Length: found chunk with length {len} while parsing {scope}, expected either of the following {valid_len:?}"))
+            .with_label(
+                Label::new((self.file_name.clone(), chunk_span.0..chunk_span.1))
+                    .with_message(format!("Adjust chunk length to either {valid_len:?}"))
+                    .with_color(ariadne::Color::Cyan)
+            )
+            .finish()
+    }
+
+    fn invalid_body_impl(&self) -> Report<(String, Range<usize>)> {
+        let ParserError::InvalidBody {
+                ref scope,
+                ref token,
+                ref valid_body,
+            } = self.error else { panic!("Developer passed wrong error type!") };
+
+        Report::build(ReportKind::Error, self.file_name.clone(), token.span_start())
+            .with_code(8)
+            .with_message(format!("Invalid Token Body: token contained invalid body content with parsing {scope}, consider replacing with {valid_body:?}"))
+            .with_label(
+                Label::new((self.file_name.clone(), token.span()))
+                .with_message(format!("Consider replacing with one of the following {valid_body:?}"))
+                .with_color(ariadne::Color::Red)
+            )
+            .finish()
+    }
+}
+
+impl fmt::Display for ParserErrorHandler {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut str: Vec<u8> = Vec::new();
+
+        self.report_gen()
+            .write(
+                (self.file_name.clone(), Source::from(self.content.clone())),
+                &mut str,
+            )
+            .unwrap();
+
+        write!(f, "{}", String::from_utf8(str).unwrap())
+    }
+}
 
 #[derive(Debug)]
 pub enum ParserError {
@@ -36,134 +177,7 @@ pub enum ParserError {
     IoError(std::io::Error),
 }
 
-impl ParserError {
-    pub fn report_gen(&self, file_name: impl Into<String>) -> Report<(String, Range<usize>)> {
-        #![allow(unused_variables)]
-        let file_name = file_name.into();
-        let report = match self {
-            Self::OutOfTokens { scope } => self.out_of_tokens_impl(file_name),
-            Self::TokenMismatch {
-                scope,
-                token,
-                expected_token,
-            } => self.token_mismatch_impl(file_name),
-            Self::EncapsulatorMismatch {
-                scope,
-                encap,
-                expected_encap,
-                node_span,
-            } => self.encapsulator_mismatch_impl(file_name),
-            Self::BadChunkLength {
-                scope,
-                len,
-                valid_len,
-                chunk_span,
-            } => self.bad_chunk_length_impl(file_name),
-            Self::InvalidBody {
-                scope,
-                token,
-                valid_body,
-            } => self.invalid_body_impl(file_name),
-            Self::IoError(e) => Report::build(ReportKind::Error, "_".to_string(), 0)
-                .with_message(e)
-                .finish(),
-        };
-
-        report
-    }
-
-    fn out_of_tokens_impl(&self, file_name: String) -> Report<(String, Range<usize>)> {
-        let Self::OutOfTokens { scope } = self else { panic!("Developer did a no no!") };
-
-        Report::build(ReportKind::Error, file_name, 0)
-            .with_code(9999)
-            .with_message(format!("Ran of out tokens while parsing {scope}."))
-            .with_help("This should never occur. Check for incomplete blocks or statements.")
-            .finish()
-    }
-
-    fn token_mismatch_impl(&self, file_name: String) -> Report<(String, Range<usize>)> {
-        let Self::TokenMismatch {
-                scope,
-                token,
-                expected_token,
-            } = self else { panic!("Developer did a no no!") };
-
-        Report::build(ReportKind::Error, file_name.clone(), token.span_start())
-            .with_code(1)
-            .with_message(format!(
-                "Token Mismatch: expected {}, found {} while parsing {scope}",
-                expected_token.token_name(),
-                token.token_name()
-            ))
-            .with_label(
-                Label::new((file_name, token.span()))
-                    .with_message(format!(
-                        "Consider replacing with {}",
-                        expected_token.token_name()
-                    ))
-                    .with_color(ariadne::Color::Red),
-            )
-            .finish()
-    }
-
-    fn encapsulator_mismatch_impl(&self, file_name: String) -> Report<(String, Range<usize>)> {
-        let Self::EncapsulatorMismatch {
-                scope,
-                encap,
-                expected_encap,
-                node_span,
-            } = self else { panic!("Developer did a no no!") };
-
-        Report::build(ReportKind::Error, file_name.clone(), node_span.0)
-            .with_code(2)
-            .with_message(format!(
-                "Encapsulator Mismatch: expected {expected_encap}, found {encap} while parsing {scope}"
-            ))
-            .with_label(
-                Label::new((file_name, node_span.0..node_span.1))
-                    .with_message(format!("Consider replacing with {expected_encap}")).with_color(ariadne::Color::Cyan)
-            )
-            .finish()
-    }
-
-    fn bad_chunk_length_impl(&self, file_name: String) -> Report<(String, Range<usize>)> {
-        let Self::BadChunkLength {
-                scope,
-                len,
-                valid_len,
-                chunk_span,
-            } = self else { panic!("Developer did a no no!") };
-
-        Report::build(ReportKind::Error, file_name.clone(), chunk_span.0)
-            .with_code(4)
-            .with_message(format!("Bad Chunk Length: found chunk with length {len} while parsing {scope}, expected either of the following {valid_len:?}"))
-            .with_label(
-                Label::new((file_name, chunk_span.0..chunk_span.1))
-                    .with_message(format!("Adjust chunk length to either {valid_len:?}"))
-                    .with_color(ariadne::Color::Cyan)
-            )
-            .finish()
-    }
-
-    fn invalid_body_impl(&self, file_name: String) -> Report<(String, Range<usize>)> {
-        let Self::InvalidBody {
-                scope,
-                token,
-                valid_body,
-            } = self else { panic!("Developer did a no no!") };
-
-        Report::build(ReportKind::Error, file_name.clone(), token.span_start())
-            .with_code(8)
-            .with_message(format!("Invalid Token Body: token contained invalid body content with parsing {scope}, consider replacing with {valid_body:?}"))
-            .with_label(
-                Label::new((file_name, token.span()))
-                .with_message(format!("Consider replacing with one of the following {valid_body:?}"))
-                .with_color(ariadne::Color::Yellow)
-            )
-            .finish()
-    }
-}
+impl ParserError {}
 
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -216,6 +230,6 @@ impl fmt::Display for ParserScope {
             Self::CommandDefinitionBody => "the body of a command definition",
         };
 
-        writeln!(f, "{m}")
+        write!(f, "{m}")
     }
 }

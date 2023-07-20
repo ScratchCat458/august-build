@@ -1,8 +1,6 @@
 use std::iter::Peekable;
 use std::slice::Iter;
 
-use tracing::trace;
-
 use crate::{Command, CommandDefinition, InternalCommand, Module, Task};
 
 use super::error::{ParserError, ParserScope};
@@ -270,7 +268,6 @@ pub fn parse_body_cmds(
                 commands.push(Command::External(cmd_namespace, cmd_name));
             }
             2 => {
-                //Internal with arguments
                 let Token::Ident(cmd_name, _) = chunk[0].clone() else {
                     return Err(ParserError::TokenMismatch {
                         scope,
@@ -305,7 +302,7 @@ pub fn parse_body_cmds(
                 };
 
                 match cmd_name.as_str() {
-                    "exec" => {
+                    "exec" | "~" => {
                         if arg_node.children.len() != 1 {
                             return Err(ParserError::BadChunkLength {
                                 scope,

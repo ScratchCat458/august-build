@@ -1,47 +1,58 @@
-use std::{fs::read_to_string, process::exit};
+use std::{fs::read_to_string};
 
-use ariadne::Source;
+
 use std::path::PathBuf;
 
 use crate::Module;
 use walkdir::WalkDir;
 
-use self::{error::ParserError, parse::parse_module, token::tokenise};
+use self::{
+    error::{ParserErrorHandler},
+    parse::parse_module,
+    token::tokenise,
+};
 
 pub mod error;
 pub mod parse;
 pub mod token;
 
-pub fn handle_parser_error(err: ParserError, file_name: String, content: String) {
-    err.report_gen(file_name.clone())
-        .eprint((file_name, Source::from(content)))
-        .unwrap();
-}
-
-pub fn parse_script(main_script_name: impl Into<String>) -> Result<Module, ParserError> {
+pub fn parse_script(main_script_name: impl Into<String>) -> Result<Module, ParserErrorHandler> {
     let main_script_name = main_script_name.into();
-    let input = read_to_string(main_script_name.clone())?;
+    let input = match read_to_string(main_script_name.clone()) {
+        Ok(i) => i,
+        Err(e) => {
+            return Err(ParserErrorHandler::from_err(
+                e.into(),
+                main_script_name,
+                String::new(),
+            ));
+        }
+    };
     let tokens = tokenise(input.clone());
     let mut module = match parse_module(tokens) {
         Ok(m) => m,
-        Err(e) => {
-            handle_parser_error(e, main_script_name, input);
-            exit(1)
-        }
+        Err(e) => return Err(ParserErrorHandler::from_err(e, main_script_name, input)),
     };
 
     for i in module.links.clone() {
         let Some(ext_path) = resolve_module_path(i) else {
             continue;
         };
-        let ext_input = read_to_string(ext_path)?;
+        let ext_input = match read_to_string(ext_path) {
+            Ok(i) => i,
+            Err(e) => {
+                return Err(ParserErrorHandler::from_err(
+                    e.into(),
+                    main_script_name,
+                    input,
+                ));
+            }
+        };
+
         let ext_tokens = tokenise(ext_input);
         let ext_module = match parse_module(ext_tokens) {
             Ok(m) => m,
-            Err(e) => {
-                handle_parser_error(e, main_script_name, input);
-                exit(1)
-            }
+            Err(e) => return Err(ParserErrorHandler::from_err(e, main_script_name, input)),
         };
         module.link_module(ext_module);
     }

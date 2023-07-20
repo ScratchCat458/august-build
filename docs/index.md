@@ -33,6 +33,7 @@ Here they all are:
 - [`owo-colors`](https://github.com/jam1garner/owo-colors): Vibrant colouring for displaying CLI execution by [@jam1garner](https://github.com/jam1garner)
 - [`run-script`](https://github.com/sagiegurari/run_script): Used so I don't have to think about argument separation in the `exec` command by [@sagiegurari](https://github.com/sagiegurari)
 - [`walkdir`](https://github.com/BurntSushi/walkdir): Directory recursion for module resolution by [@BurntSushi](https://github.com/BurntSushi)
+- [`tracing`](https://github.com/tokio-rs/tracing) and [`tracing-subscriber`](https://github.com/tokio-rs/tracing/tree/master/tracing-subscriber): Nice app-level diagnostics by the [@tokio-rs](https://github.com/tokio-rs) team
 
 ## Show off in your repo 
 If you use August in your project, you can add this badge to your README: [![Built with August](https://img.shields.io/badge/built%20with-august-blueviolet)](https://github.com/ScratchCat458/august-build)

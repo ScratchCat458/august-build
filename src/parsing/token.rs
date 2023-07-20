@@ -210,14 +210,14 @@ fn create_node(cursor: &mut Peekable<Enumerate<Chars>>, encap: EncapsulatorType)
 fn classify(cursor: &mut Peekable<Enumerate<Chars>>) -> Option<Token> {
     #![allow(unused_assignments)]
     match *cursor.peek().unwrap() {
-        (s, 'A'..='Z' | 'a'..='z') => {
+        (s, 'A'..='Z' | 'a'..='z' | '~') => {
             let mut ident = String::new();
             let mut ending_pos = 0_usize;
 
             loop {
                 let (sp, ch) = cursor.peek().unwrap();
                 match ch {
-                    'A'..='Z' | 'a'..='z' | '_' | '-' => {
+                    'A'..='Z' | 'a'..='z' | '_' | '-' | '~' => {
                         ident.push(ch.to_owned());
                         cursor.next();
                     }
