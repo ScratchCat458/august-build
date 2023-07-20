@@ -8,12 +8,12 @@ Task build {
   exec("cargo build");
 }
 
-Tsk test {
+Task test {
   lints;
   exec("cargo test");
 }
 
 cmddef lints {
-  exec("cargo fmt");
-  exec("cargo clippy");
+  ~("cargo fmt");
+  ~("cargo clippy");
 }
