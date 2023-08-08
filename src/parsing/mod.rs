@@ -1,16 +1,11 @@
-use std::{fs::read_to_string};
-
+use std::fs::read_to_string;
 
 use std::path::PathBuf;
 
 use crate::Module;
 use walkdir::WalkDir;
 
-use self::{
-    error::{ParserErrorHandler},
-    parse::parse_module,
-    token::tokenise,
-};
+use self::{error::ParserErrorHandler, parse::parse_module, token::tokenise};
 
 pub mod error;
 pub mod parse;

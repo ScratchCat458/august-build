@@ -29,12 +29,18 @@ pub enum CLICommand {
         /// The file path of the build script. The default is `main.august`.
         #[arg(short, long)]
         script: Option<PathBuf>,
+        /// Silents extra output lines for the task runner
+        #[arg(short, long)]
+        quiet: bool,
     },
     /// Runs the task assigned to the build pragma
     Build {
         /// The file path of the build script. The default is `main.august`.
         #[arg(short, long)]
         script: Option<PathBuf>,
+        /// Silents extra output lines for the task runner
+        #[arg(short, long)]
+        quiet: bool,
     },
     /// Runs the task provided as an argument
     Run {
@@ -43,6 +49,9 @@ pub enum CLICommand {
         script: Option<PathBuf>,
         /// The name of the task to be run
         task_name: String,
+        /// Silents extra output lines for the task runner
+        #[arg(short, long)]
+        quiet: bool,
     },
     /// Parses the build script and associated modules to check for errors, but doesn't run anything
     Check {
@@ -124,7 +133,7 @@ pub fn run(cli: CLI) -> Result<(), CLIError> {
 
             println!("{table}");
         }
-        CLICommand::Test { script } => {
+        CLICommand::Test { script, quiet } => {
             let script = script
                 .unwrap_or(PathBuf::from(DEFAULT_SCRIPT_PATH))
                 .to_str()
@@ -139,9 +148,11 @@ pub fn run(cli: CLI) -> Result<(), CLIError> {
                 );
                 std::process::exit(1);
             };
-            ExecutionPool::new(module.tasks, module.cmd_defs).run(main_task);
+            ExecutionPool::new(module.tasks, module.cmd_defs)
+                .with_notifications(quiet)
+                .run(main_task);
         }
-        CLICommand::Build { script } => {
+        CLICommand::Build { script, quiet } => {
             let script = script
                 .unwrap_or(PathBuf::from(DEFAULT_SCRIPT_PATH))
                 .to_str()
@@ -154,9 +165,15 @@ pub fn run(cli: CLI) -> Result<(), CLIError> {
         Try adding `#pragma build task_name` to your build script", " ERR ".black().on_red());
                 std::process::exit(1);
             };
-            ExecutionPool::new(module.tasks, module.cmd_defs).run(main_task);
+            ExecutionPool::new(module.tasks, module.cmd_defs)
+                .with_notifications(quiet)
+                .run(main_task);
         }
-        CLICommand::Run { script, task_name } => {
+        CLICommand::Run {
+            script,
+            task_name,
+            quiet,
+        } => {
             let script = script
                 .unwrap_or(PathBuf::from(DEFAULT_SCRIPT_PATH))
                 .to_str()
@@ -164,7 +181,9 @@ pub fn run(cli: CLI) -> Result<(), CLIError> {
                 .to_string();
 
             let module = parse_script(script)?;
-            ExecutionPool::new(module.tasks, module.cmd_defs).run(task_name);
+            ExecutionPool::new(module.tasks, module.cmd_defs)
+                .with_notifications(quiet)
+                .run(task_name);
         }
         CLICommand::Check { script } => {
             let script = script

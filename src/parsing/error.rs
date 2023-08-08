@@ -177,8 +177,6 @@ pub enum ParserError {
     IoError(std::io::Error),
 }
 
-impl ParserError {}
-
 impl fmt::Display for ParserError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let m = match self {

@@ -9,7 +9,8 @@ pub mod output;
 pub struct ExecutionPool {
     pub tasks: HashMap<String, Task>,
     pub cmd_defs: HashMap<Command, CommandDefinition>,
-    pub active_tasks: Vec<String>,
+    active_tasks: Vec<String>,
+    quiet: bool,
 }
 
 impl ExecutionPool {
@@ -21,18 +22,28 @@ impl ExecutionPool {
             tasks,
             cmd_defs,
             active_tasks: Vec::new(),
+            quiet: false,
         }
+    }
+
+    pub fn with_notifications(&mut self, quiet: bool) -> &mut Self {
+        self.quiet = quiet;
+        self
     }
 
     pub fn run(&mut self, main_task: impl Into<String>) {
         let main_task = main_task.into();
-        Notification::Start {
-            build_goal: main_task.clone(),
+        if !self.quiet {
+            Notification::Start {
+                build_goal: main_task.clone(),
+            }
+            .print();
         }
-        .print();
         match self.deploy_task(main_task) {
             Ok(_) => {
-                Notification::Completion.print();
+                if !self.quiet {
+                    Notification::Completion.print();
+                }
             }
             Err(e) => {
                 Notification::Fail { error: e }.print();
@@ -54,11 +65,13 @@ impl ExecutionPool {
         let task = self.tasks.get(&task_name).expect("Bad developer").clone();
         self.active_tasks.push(task_name.clone());
 
-        Notification::TaskRun {
-            task_name: task_name.clone(),
-            dep_names: task.dependencies.clone(),
+        if !self.quiet {
+            Notification::TaskRun {
+                task_name: task_name.clone(),
+                dep_names: task.dependencies.clone(),
+            }
+            .print();
         }
-        .print();
 
         if !task.dependencies.is_empty() {
             for dep in &task.dependencies {
@@ -66,10 +79,12 @@ impl ExecutionPool {
                     continue;
                 }
 
-                Notification::DependencyRun {
-                    dep_name: dep.clone(),
+                if !self.quiet {
+                    Notification::DependencyRun {
+                        dep_name: dep.clone(),
+                    }
+                    .print();
                 }
-                .print();
                 self.deploy_task(dep)?;
             }
         }
@@ -84,10 +99,12 @@ impl ExecutionPool {
 
     pub fn run_command(&self, command: &Command) -> Result<(), RuntimeError> {
         if let Command::Internal(ic) = command {
-            Notification::CommandRun {
-                command: command.clone(),
+            if !self.quiet {
+                Notification::CommandRun {
+                    command: command.clone(),
+                }
+                .print();
             }
-            .print();
 
             match ic {
                 InternalCommand::Exec(e) => {
@@ -127,10 +144,12 @@ impl ExecutionPool {
                 }
             }
         } else {
-            Notification::CommandDefinition {
-                command: command.clone(),
+            if !self.quiet {
+                Notification::CommandDefinition {
+                    command: command.clone(),
+                }
+                .print();
             }
-            .print();
 
             let Some(def) = self.cmd_defs.get(command) else {
                     return Err(RuntimeError::NonExistentCommand(command.clone()));
