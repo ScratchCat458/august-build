@@ -90,9 +90,6 @@ impl ExecutionPool {
                     .print();
                 }
                 self.deploy_task(dep)?;
-                if !self.quiet {
-                    eprintln!("\n");
-                }
             }
         }
 
@@ -163,9 +160,6 @@ impl ExecutionPool {
                 };
             for cmd in &def.commands {
                 self.run_command(cmd)?;
-            }
-            if !self.quiet {
-                eprintln!("\n");
             }
         }
         Ok(())
