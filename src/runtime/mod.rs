@@ -62,7 +62,11 @@ impl ExecutionPool {
 
     pub fn deploy_task(&mut self, task_name: impl Into<String>) -> Result<(), RuntimeError> {
         let task_name = task_name.into();
-        let task = self.tasks.get(&task_name).expect("Bad developer").clone();
+        let task = self
+            .tasks
+            .get(&task_name)
+            .ok_or(RuntimeError::NonExistentTask(task_name.clone()))?
+            .clone();
         self.active_tasks.push(task_name.clone());
 
         if !self.quiet {
@@ -86,6 +90,9 @@ impl ExecutionPool {
                     .print();
                 }
                 self.deploy_task(dep)?;
+                if !self.quiet {
+                    eprintln!("\n");
+                }
             }
         }
 
@@ -156,6 +163,9 @@ impl ExecutionPool {
                 };
             for cmd in &def.commands {
                 self.run_command(cmd)?;
+            }
+            if !self.quiet {
+                eprintln!("\n");
             }
         }
         Ok(())

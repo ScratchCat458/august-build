@@ -6,6 +6,7 @@ use crate::Command;
 
 #[derive(Debug)]
 pub enum RuntimeError {
+    NonExistentTask(String),
     NonExistentCommand(Command),
     ProcessFailure(String, i32),
     RunScriptError(run_script::ScriptError),
@@ -15,11 +16,14 @@ pub enum RuntimeError {
 impl fmt::Display for RuntimeError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let m = match self {
+            Self::NonExistentTask(t) => {
+                format!("Task `{t}` does not exist in current script")
+            }
             Self::NonExistentCommand(c) => {
                 let command = match c {
                     Command::Local(n) => n.to_string(),
                     Command::External(ns, n) => format!("{n} from {ns}"),
-                    Command::Internal(_) => panic!(),
+                    Command::Internal(_) => panic!("Internal commands should always be existent."),
                 };
 
                 format!("Unable to find the command {command}")
@@ -100,7 +104,7 @@ impl fmt::Display for Notification {
             Self::DependencyRun { dep_name } => {
                 format!(
                     "{} Expanding dependency `{dep_name}` to task for execution",
-                    " DEPDENDENCY ".black().on_yellow()
+                    "  DEPENDENCY ".black().on_yellow()
                 )
             }
             Self::CommandRun { command } => {

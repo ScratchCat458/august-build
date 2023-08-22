@@ -35,7 +35,7 @@ impl Module {
 
     pub fn cmd_def(&mut self, name: Command, definition: CommandDefinition) -> &mut Self {
         if let Command::Internal(_) = name {
-            panic!("Developer did a no no!");
+            panic!("Internal commands cannot be CommandDefinitions");
         }
 
         self.cmd_defs.insert(name, definition);
