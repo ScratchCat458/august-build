@@ -1,0 +1,24 @@
+expose Build as build
+
+unit Build {
+    depends_on(Test, OtherTest)
+    meta(
+        @hi "hi"
+    )
+
+    println("Hi from build")
+}
+
+unit Test {
+    exec(cargo build)
+    fs::create_dir("test")
+    println("Hi from test")
+}
+
+unit OtherTest {
+    depends_on(Test)
+
+    remove("test")
+
+    println("Hi from other test")
+}

@@ -1,19 +1,36 @@
-@main
+expose Build as build
+expose Test as test
 
-#pragma test test
-#pragma build build
+unit Build {
+  meta(
+    @name "cargo::Build"
+    @desc "Runs `cargo build`"
+    @deps "[Test]"
+  )
 
-Task build {
-  print_file("Cargo.toml");
-  exec("cargo build");
+  depends_on(Test)
+
+  fs::eprint_file("Cargo.toml")
+  exec(cargo build)
 }
 
-Task test {
-  lints;
-  exec("cargo test");
+unit Test {
+  meta(
+    @name "cargo::Test"
+    @desc "Runs `cargo test`"
+    @calls "[cargo::Lints]"
+  )
+
+  do(Lints)
+  exec(cargo test)
 }
 
-cmddef lints {
-  ~("cargo fmt");
-  ~("cargo clippy");
+unit Lints {
+  meta(
+    @name "cargo::Lints"
+    @desc "Runs `cargo fmt` and `cargo clippy`"
+  )
+
+  ~(cargo fmt)
+  ~(cargo clippy)
 }
