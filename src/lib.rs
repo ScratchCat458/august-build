@@ -177,6 +177,10 @@ impl Unit {
                 .collect(),
         })
     }
+
+    pub fn deps(&self) -> &HashSet<Spanned<String>> {
+        &self.depends_on
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]

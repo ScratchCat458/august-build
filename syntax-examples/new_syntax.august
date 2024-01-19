@@ -2,9 +2,6 @@ expose Build as build
 
 unit Build {
     depends_on(Test, OtherTest)
-    meta(
-        @hi "hi"
-    )
 
     println("Hi from build")
 }

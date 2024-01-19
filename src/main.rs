@@ -1,6 +1,6 @@
 use std::{
     fs::read_to_string,
-    io::{stderr, stdout, IsTerminal},
+    io::{stderr, stdout},
     path::{Path, PathBuf},
     process::exit,
 };
@@ -180,8 +180,16 @@ fn inspect(module: &Module) {
             .load_preset(UTF8_FULL)
             .apply_modifier(UTF8_ROUND_CORNERS)
             .apply_modifier(UTF8_SOLID_INNER_BORDERS);
-        table.set_header(["Unit"]);
-        table.add_rows(module.units().iter().map(|(k, _)| Row::from([k.inner()])));
+        table.set_header(["Unit", "Dependencies"]);
+        table.add_rows(module.units().iter().map(|(k, v)| {
+            Row::from([
+                k.inner(),
+                v.deps()
+                    .iter()
+                    .fold(String::new(), |acc, d| acc + d.inner() + "\n")
+                    .trim_end(),
+            ])
+        }));
         table
     } else {
         let mut table = Table::new();
@@ -189,7 +197,7 @@ fn inspect(module: &Module) {
             .load_preset(UTF8_FULL)
             .apply_modifier(UTF8_ROUND_CORNERS)
             .apply_modifier(UTF8_SOLID_INNER_BORDERS);
-        table.set_header(["Unit", "@meta", ""]);
+        table.set_header(["Unit", "Dependencies", "@meta", ""]);
         table.add_rows(
             module
                 .units()
@@ -197,22 +205,35 @@ fn inspect(module: &Module) {
                 .map(|(k, v)| {
                     let mut rows = Vec::with_capacity(v.meta.len());
                     let mut meta_iter = v.meta.iter();
+                    let mut dep_iter = v.deps().iter();
+
                     if let Some((var, val)) = meta_iter.next() {
                         rows.push(Row::from([
                             k.inner_owned(),
+                            dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
                             var.inner_owned(),
                             val.to_string(),
                         ]));
                     } else {
-                        rows.push(Row::from([k.inner(), "", ""]))
+                        rows.push(Row::from([
+                            k.inner(),
+                            &dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
+                            "",
+                            "",
+                        ]))
                     }
 
                     while let Some((var, val)) = meta_iter.next() {
                         rows.push(Row::from([
                             "".to_string(),
+                            dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
                             var.inner_owned(),
                             val.to_string(),
                         ]));
+                    }
+
+                    while let Some(dep) = dep_iter.next() {
+                        rows.push(Row::from(["", dep.inner(), "", ""]));
                     }
 
                     rows

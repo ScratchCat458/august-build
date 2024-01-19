@@ -2,7 +2,7 @@ use std::{fmt::Display, ops::Range};
 
 use chumsky::{
     prelude::*,
-    text::{ident, newline, whitespace, Character},
+    text::{ident, Character},
 };
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
