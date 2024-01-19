@@ -1,135 +1,225 @@
 use std::collections::{HashMap, HashSet};
+use thiserror::Error;
 
-pub mod parsing;
+use parser::{Spanned, AST};
+
+pub mod error;
+pub mod lexer;
+pub mod notifier;
+pub mod parser;
 pub mod runtime;
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Module {
-    pub namespace: String,
-    pub pragmas: Pragma,
-    pub links: HashSet<String>,
-    pub tasks: HashMap<String, Task>,
-    pub cmd_defs: HashMap<Command, CommandDefinition>,
+    expose: HashMap<Pragma, Spanned<String>>,
+    units: HashMap<Spanned<String>, Unit>,
 }
 
 impl Module {
-    pub fn namespace(&mut self, namespace: impl Into<String>) -> &mut Self {
-        self.namespace = namespace.into();
-        self
-    }
+    pub fn lower(ast: Vec<AST>) -> Result<Self, Vec<LowerError>> {
+        let mut errors = Vec::new();
 
-    pub fn pragma(&mut self, pragma: Pragma) -> &mut Self {
-        self.pragmas = pragma;
-        self
-    }
+        let mut unit_iter = ast.iter().filter(|a| matches!(a, AST::Unit(_, _)));
+        let mut units: HashMap<Spanned<String>, Unit> =
+            HashMap::with_capacity(unit_iter.size_hint().0);
 
-    pub fn link(&mut self, link: impl Into<String>) -> &mut Self {
-        self.links.insert(link.into());
-        self
-    }
+        while let Some(AST::Unit(name, cmds)) = unit_iter.next() {
+            let res = Unit::lower(cmds);
+            let unit = match res {
+                Ok(u) => u,
+                Err(e) => {
+                    errors.extend(e);
+                    // Still need the unit to exist for name checks
+                    // Lower will still error
+                    Unit::default()
+                }
+            };
 
-    pub fn task(&mut self, task_name: impl Into<String>, task: Task) -> &mut Self {
-        self.tasks.insert(task_name.into(), task);
-        self
-    }
-
-    pub fn cmd_def(&mut self, name: Command, definition: CommandDefinition) -> &mut Self {
-        if let Command::Internal(_) = name {
-            panic!("Internal commands cannot be CommandDefinitions");
+            if let Some((other, _)) = units.get_key_value(name) {
+                errors.push(LowerError::DuplicateUnit(other.clone(), name.clone()));
+            } else {
+                units.insert(name.clone(), unit);
+            }
         }
 
-        self.cmd_defs.insert(name, definition);
-        self
-    }
+        let mut expose_iter = ast.into_iter().filter(|a| matches!(a, AST::Expose(_, _)));
+        let mut expose = HashMap::with_capacity(expose_iter.size_hint().0);
 
-    pub fn link_module(&mut self, ext_module: Module) -> &mut Self {
-        assert!(
-            self.links.contains(&ext_module.namespace),
-            "Attempted to link an already linked or non specified module.
-Likely a developer end issue but double-check your build scripts and dependencies just in case :)"
-        );
+        while let Some(AST::Expose(prag, unit)) = expose_iter.next() {
+            let mut err = false;
+            if expose.contains_key(&prag) {
+                err = true;
+                errors.push(LowerError::DuplicateExpose(prag, unit.clone()));
+            }
+            if !units.contains_key(&unit) {
+                err = true;
+                errors.push(LowerError::NameError(unit.clone()));
+            }
+            if err {
+                continue;
+            }
 
-        self.links.remove(&ext_module.namespace);
-
-        let mut cmd_defs = HashMap::new();
-        for (k, v) in ext_module.cmd_defs {
-            let Command::Local(name) = k else { unreachable!() };
-
-            cmd_defs.insert(Command::External(ext_module.namespace.clone(), name), v);
+            expose.insert(prag, unit.clone());
         }
 
-        self.cmd_defs.extend(cmd_defs);
+        for (_, unit) in &units {
+            for u in &unit.depends_on {
+                if !units.contains_key(&u) {
+                    errors.push(LowerError::NameError(u.clone()))
+                }
+            }
 
-        self
+            let mut dos_iter = unit.commands.iter().filter(|c| matches!(c, Command::Do(_)));
+            while let Some(Command::Do(dos)) = dos_iter.next() {
+                for d in dos {
+                    if !units.contains_key(&d) {
+                        errors.push(LowerError::NameError(d.clone()))
+                    }
+                }
+            }
+        }
+
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        Ok(Self { expose, units })
+    }
+
+    pub fn units(&self) -> &HashMap<Spanned<String>, Unit> {
+        &self.units
+    }
+
+    pub fn unit_exists(&self, name: impl Into<String>) -> bool {
+        self.units.contains_key(&Spanned::new(name.into()))
+    }
+
+    pub fn unit_by_pragma(&self, pragma: Pragma) -> Option<String> {
+        self.expose.get(&pragma).map(Spanned::inner_owned)
     }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Pragma {
-    pub test: Option<String>,
-    pub build: Option<String>,
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum LowerError {
+    #[error("Attempted to define another binding for pragma {0:?}")]
+    DuplicateExpose(Pragma, Spanned<String>),
+    #[error("Attempted to define multiple units with the name {1}")]
+    DuplicateUnit(Spanned<String>, Spanned<String>),
+    #[error("Dependency {1} defined multiple times in the same unit")]
+    DuplicateDependency(Spanned<String>, Spanned<String>),
+    #[error("Meta item {1} defined multiple times in the same unit")]
+    DuplicateMetaItem(Spanned<String>, Spanned<String>),
+    #[error("Refers to a unit {0} that doesn't exist")]
+    NameError(Spanned<String>),
 }
 
-impl Pragma {
-    pub fn test(&mut self, job_name: impl Into<String>) -> &mut Self {
-        self.test = Some(job_name.into());
-        self
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Unit {
+    depends_on: HashSet<Spanned<String>>,
+    pub meta: HashMap<Spanned<String>, String>,
+    commands: Vec<Command>,
+}
+
+impl Unit {
+    pub fn lower(cmds: &[Command]) -> Result<Self, Vec<LowerError>> {
+        let mut errors = Vec::new();
+
+        let depends_iter = cmds
+            .iter()
+            .filter_map(|c| {
+                if let Command::DependsOn(deps) = c {
+                    Some(deps)
+                } else {
+                    None
+                }
+            })
+            .flatten();
+        let mut depends_on: HashSet<Spanned<String>> =
+            HashSet::with_capacity(depends_iter.size_hint().0);
+
+        for dep in depends_iter {
+            if let Some(other) = depends_on.get(dep) {
+                errors.push(LowerError::DuplicateDependency(other.clone(), dep.clone()))
+            } else {
+                depends_on.insert(dep.clone());
+            }
+        }
+
+        let meta_iter = cmds.iter().filter_map(|c| {
+            if let Command::Meta(meta) = c {
+                Some(meta)
+            } else {
+                None
+            }
+        });
+        let mut meta: HashMap<Spanned<String>, String> =
+            HashMap::with_capacity(meta_iter.size_hint().0);
+
+        for meta_items in meta_iter {
+            for (var, val) in meta_items {
+                if let Some((other, _)) = meta.get_key_value(var) {
+                    errors.push(LowerError::DuplicateMetaItem(other.clone(), var.clone()))
+                } else {
+                    meta.insert(var.clone(), val.clone());
+                }
+            }
+        }
+
+        if !errors.is_empty() {
+            return Err(errors);
+        }
+        Ok(Self {
+            depends_on,
+            meta,
+            commands: cmds
+                .into_iter()
+                .cloned()
+                .filter(|c| !matches!(c, Command::Meta(_) | Command::DependsOn(_)))
+                .collect(),
+        })
     }
-
-    pub fn build(&mut self, job_name: impl Into<String>) -> &mut Self {
-        self.build = Some(job_name.into());
-        self
-    }
 }
 
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Task {
-    pub dependencies: HashSet<String>,
-    pub commands: Vec<Command>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Pragma {
+    Test,
+    Build,
 }
 
-impl Task {
-    pub fn dependency(&mut self, dep_name: impl Into<String>) -> &mut Self {
-        self.dependencies.insert(dep_name.into());
-        self
-    }
-
-    pub fn command(&mut self, command: Command) -> &mut Self {
-        self.commands.push(command);
-        self
-    }
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct CommandDefinition {
-    pub commands: Vec<Command>,
-}
-
-impl CommandDefinition {
-    pub fn command(&mut self, command: Command) -> &mut Self {
-        self.commands.push(command);
-        self
-    }
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
-    Internal(InternalCommand),
-    Local(String),
-    External(String, String),
+    DependsOn(Vec<Spanned<String>>),
+    Meta(Vec<(Spanned<String>, String)>),
+    Do(Vec<Spanned<String>>),
+    Exec(Vec<Spanned<String>>),
+
+    Fs(FsCommand),
+    Io(IoCommand),
+    Env(EnvCommand),
 }
 
-// Execution implemented as a part of the runtime
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum InternalCommand {
-    Exec(String),
-    SetEnvironmentVar(String, String),
-    PrintString(String),
-    PrintFile(String),
-    MakeDirectory(String),
-    MakeFile(String),
-    RemoveDirectory(String),
-    RemoveFile(String),
-    CopyFile(String, String),
-    MoveFile(String, String),
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FsCommand {
+    Create(Spanned<String>),
+    CreateDir(Spanned<String>),
+    Remove(Spanned<String>),
+    Move(Spanned<String>, Spanned<String>),
+    Copy(Spanned<String>, Spanned<String>),
+    PrintFile(Spanned<String>),
+    EPrintFile(Spanned<String>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum IoCommand {
+    PrintLn(Spanned<String>),
+    Print(Spanned<String>),
+    EPrintLn(Spanned<String>),
+    EPrint(Spanned<String>),
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum EnvCommand {
+    SetVar(Spanned<String>, Spanned<String>),
+    RemoveVar(Spanned<String>),
+    PathPush(Spanned<String>),
+    PathRemove(Spanned<String>),
 }

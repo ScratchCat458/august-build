@@ -1,32 +1,246 @@
-use std::error::Error;
+use std::{
+    fs::read_to_string,
+    io::{stderr, stdout, IsTerminal},
+    path::{Path, PathBuf},
+    process::exit,
+};
 
-use august_build::runtime::cli::{run, CLI};
-use clap::Parser;
-use tracing::Level;
-use tracing_subscriber::FmtSubscriber;
+use august_build::{
+    error::{LowerErrorFormatter, ParserErrorFormatter},
+    lexer::lexer,
+    notifier::Notifier,
+    parser::parser,
+    runtime::Runtime,
+    Module, Pragma,
+};
+use chumsky::{Parser, Stream};
+use clap::CommandFactory;
+use cli::CLI;
+use comfy_table::{
+    modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS},
+    presets::UTF8_FULL,
+    Row, Table,
+};
+use owo_colors::OwoColorize;
+use thiserror::Error;
+
+use crate::cli::CLICommand;
+
+mod cli;
 
 fn main() {
-    fn sub_main() -> Result<(), Box<dyn Error>> {
-        tracing::subscriber::set_global_default(
-            FmtSubscriber::builder()
-                .with_max_level(Level::TRACE)
-                .finish(),
-        )?;
+    if let Err(e) = do_main() {
+        eprintln!("{} {e}", "[err]".red());
+        exit(1);
+    }
+}
 
-        let cli = CLI::parse();
-        std::fs::create_dir_all({
-            let mut home = dirs::home_dir().unwrap();
-            home.push(".august");
-            home.push("modules");
-            home
+fn do_main() -> Result<(), CLIError> {
+    use CLICommand::*;
+
+    let cli = <CLI as clap::Parser>::parse();
+
+    match cli.subcommand {
+        Check => {
+            parse_file(&cli.script)?;
+        }
+        Inspect => {
+            let (module, _) = parse_file(&cli.script)?;
+            inspect(&module);
+        }
+        Build => {
+            let (module, code) = parse_file(&cli.script)?;
+            let this = module
+                .unit_by_pragma(Pragma::Build)
+                .ok_or(CLIError::NonExposedPragma(Pragma::Build))?
+                .clone();
+            run_unit(&cli, module, &code, &this)?
+        }
+        Test => {
+            let (module, code) = parse_file(&cli.script)?;
+            let this = module
+                .unit_by_pragma(Pragma::Test)
+                .ok_or(CLIError::NonExposedPragma(Pragma::Test))?
+                .clone();
+            run_unit(&cli, module, &code, &this)?
+        }
+        Run { ref unit } => {
+            let (module, code) = parse_file(&cli.script)?;
+            if module.unit_exists(unit) {
+                run_unit(&cli, module, &code, &unit)?
+            } else {
+                Err(CLIError::NonExistentUnit(unit.clone()))?;
+            }
+        }
+        Completions { shell } => {
+            clap_complete::generate(shell, &mut CLI::command(), "august", &mut stdout())
+        }
+        Info => {
+            let mut table = Table::new();
+
+            table
+                .load_preset(UTF8_FULL)
+                .apply_modifier(UTF8_ROUND_CORNERS)
+                .apply_modifier(UTF8_SOLID_INNER_BORDERS)
+                .add_row(vec!["Package Name", env!("CARGO_PKG_NAME")])
+                .add_row(vec!["Author(s)", env!("CARGO_PKG_AUTHORS")])
+                .add_row(vec!["Version", env!("CARGO_PKG_VERSION")])
+                .add_row(vec!["Documentation", env!("CARGO_PKG_HOMEPAGE")])
+                .add_row(vec!["Repository", env!("CARGO_PKG_REPOSITORY")]);
+
+            println!("{table}");
+        }
+    }
+
+    Ok(())
+}
+
+#[derive(Debug, Error)]
+enum CLIError {
+    #[error("Error during lexing")]
+    Lexing,
+    #[error("Error during parsing")]
+    Parsing,
+    #[error("Error during lowering")]
+    Lowering,
+    #[error("Error during runtime")]
+    Runtime,
+    #[error("No unit assigned to {0:?}")]
+    NonExposedPragma(Pragma),
+    #[error("Unit {0} does not exist")]
+    NonExistentUnit(String),
+    #[error("{0:?}: {1}")]
+    IO(PathBuf, std::io::Error),
+}
+
+fn parse_file(src: impl AsRef<Path>) -> Result<(Module, String), CLIError> {
+    let code = read_to_string(&src).map_err(|io| CLIError::IO(src.as_ref().to_path_buf(), io))?;
+    let len = code.len();
+
+    let src_str = src.as_ref().to_string_lossy().to_string();
+
+    let tokens = lexer()
+        .parse(Stream::from_iter(
+            len..len + 1,
+            code.chars().enumerate().map(|(i, c)| (c, i..i + 1)),
+        ))
+        .map_err(|err| {
+            ParserErrorFormatter::new(err, &src_str, &code)
+                .write_reports(&mut stderr())
+                .ok();
+            CLIError::Lexing
         })?;
 
-        run(cli)?;
+    let ast = parser()
+        .parse(Stream::from_iter(len..len + 1, tokens.into_iter()))
+        .map_err(|err| {
+            ParserErrorFormatter::new(err, &src_str, &code)
+                .write_reports(&mut stderr())
+                .ok();
+            CLIError::Parsing
+        })?;
 
-        Ok(())
+    Module::lower(ast)
+        .map_err(|err| {
+            LowerErrorFormatter::new(err, &src_str, &code)
+                .write_reports(&mut stderr())
+                .ok();
+            CLIError::Lowering
+        })
+        .map(|module| (module, code))
+}
+
+fn run_unit(cli: &CLI, module: Module, code: &str, name: &str) -> Result<(), CLIError> {
+    let mut notifier = Notifier::new((&cli.script).to_string_lossy().to_string(), code);
+    if cli.quiet {
+        notifier = notifier.silent();
+    }
+    if cli.verbose {
+        notifier = notifier.verbose();
     }
 
-    if let Err(e) = sub_main() {
-        eprintln!("{e}")
-    }
+    let runtime = Runtime::new(module, notifier);
+
+    runtime.run(name).map_err(|e| {
+        runtime.notifier().err(&[e]);
+        CLIError::Runtime
+    })
+}
+
+fn inspect(module: &Module) {
+    let is_none_meta = module
+        .units()
+        .iter()
+        .map(|(_, v)| v.meta.is_empty())
+        .fold(true, |acc, b| acc && b);
+
+    let table = if is_none_meta {
+        let mut table = Table::new();
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .apply_modifier(UTF8_SOLID_INNER_BORDERS);
+        table.set_header(["Unit"]);
+        table.add_rows(module.units().iter().map(|(k, _)| Row::from([k.inner()])));
+        table
+    } else {
+        let mut table = Table::new();
+        table
+            .load_preset(UTF8_FULL)
+            .apply_modifier(UTF8_ROUND_CORNERS)
+            .apply_modifier(UTF8_SOLID_INNER_BORDERS);
+        table.set_header(["Unit", "@meta", ""]);
+        table.add_rows(
+            module
+                .units()
+                .iter()
+                .map(|(k, v)| {
+                    let mut rows = Vec::with_capacity(v.meta.len());
+                    let mut meta_iter = v.meta.iter();
+                    if let Some((var, val)) = meta_iter.next() {
+                        rows.push(Row::from([
+                            k.inner_owned(),
+                            var.inner_owned(),
+                            val.to_string(),
+                        ]));
+                    } else {
+                        rows.push(Row::from([k.inner(), "", ""]))
+                    }
+
+                    while let Some((var, val)) = meta_iter.next() {
+                        rows.push(Row::from([
+                            "".to_string(),
+                            var.inner_owned(),
+                            val.to_string(),
+                        ]));
+                    }
+
+                    rows
+                })
+                .flatten(),
+        );
+
+        table
+    };
+
+    let mut expose_table = Table::new();
+    expose_table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .apply_modifier(UTF8_SOLID_INNER_BORDERS);
+    expose_table.set_header(["Pragma", "Unit"]);
+    expose_table.add_row(Row::from([
+        "Test",
+        &module
+            .unit_by_pragma(Pragma::Test)
+            .unwrap_or("".to_string()),
+    ]));
+    expose_table.add_row(Row::from([
+        "Build",
+        &module
+            .unit_by_pragma(Pragma::Build)
+            .unwrap_or("".to_string()),
+    ]));
+
+    println!("{expose_table}\n{table}");
 }
