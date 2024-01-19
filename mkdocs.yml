@@ -15,8 +15,8 @@ theme:
     repo: fontawesome/brands/github 
   palette: 
     scheme: slate
-    primary: indigo
-    accent: indigo
+    primary: deep purple
+    accent: deep purple
   font:
     text: Roboto
     code: Fira Code
@@ -60,8 +60,8 @@ markdown_extensions:
       generic: true
   - attr_list
   - pymdownx.emoji:
-      emoji_index: !!python/name:materialx.emoji.twemoji
-      emoji_generator: !!python/name:materialx.emoji.to_svg
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
 
 extra_javascript:
   - javascripts/mathjax.js
@@ -69,29 +69,30 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 nav:
+  - test.md
   - Welcome:
     - index.md
   - Getting Started:
-    - getting-started/index.md
-    - getting-started/installation.md
-    - getting-started/the-basics.md
-    - getting-started/extending-august.md
-    - getting-started/command-reference.md
-    - getting-started/cli.md
-  - Modules:
-    - modules/cargo.md
-  - Implementation:
-    - implementation/index.md
-    - Concepts:
-      - implementation/concepts/index.md
-      - implementation/concepts/structural.md
-      - implementation/concepts/pragmas.md
-      - implementation/concepts/tasks.md
-      - implementation/concepts/commands.md
-      - implementation/concepts/command-def.md
-      - implementation/concepts/external-modules.md
-    - Parsing:
-      - implementation/parsing/index.md
-      - implementation/parsing/tokenisation.md
-      - implementation/parsing/syntax.md
-      - implementation/parsing/module-linking.md
+    - test.md
+  - Pre 0.5: 
+    - old\index.md
+    - old\getting-started\index.md
+    - old\getting-started\cli.md
+    - old\getting-started\command-reference.md
+    - old\getting-started\extending-august.md
+    - old\getting-started\installation.md
+    - old\getting-started\the-basics.md
+    - old\implementation\index.md
+    - old\implementation\concepts\index.md
+    - old\implementation\concepts\command-def.md
+    - old\implementation\concepts\commands.md
+    - old\implementation\concepts\external-modules.md
+    - old\implementation\concepts\pragmas.md
+    - old\implementation\concepts\structural.md
+    - old\implementation\concepts\tasks.md
+    - old\implementation\parsing\index.md
+    - old\implementation\parsing\module-linking.md
+    - old\implementation\parsing\syntax.md
+    - old\implementation\parsing\tokenisation.md
+    - old\modules\cargo.md
+  
