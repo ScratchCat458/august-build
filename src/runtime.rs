@@ -14,6 +14,7 @@ use std::{
 
 use dircpy::copy_dir;
 use thiserror::Error;
+use which::which;
 
 use crate::{
     notifier::Notifier, parser::Spanned, Command, EnvCommand, FsCommand, IoCommand, Module, Unit,
@@ -205,10 +206,15 @@ fn exec(cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
     let prog = &cmd[0];
     let args = cmd[1..].iter().map(Spanned::inner);
 
-    let exec = process::Command::new(prog.inner())
-        .args(args)
-        .output()
-        .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
+    let exec = process::Command::new(which(prog.inner()).map_err(|e| {
+        RuntimeError::ExecutionFailure(
+            cmd.to_vec(),
+            io::Error::new(io::ErrorKind::NotFound, e.to_string()),
+        )
+    })?)
+    .args(args)
+    .output()
+    .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
 
     if !exec.status.success() {
         return Err(RuntimeError::ExecutionFailure(

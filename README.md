@@ -34,6 +34,7 @@ Here they all are:
 - [`dircpy`](https://github.com/woelper/dircpy/): Recursive directory copying for August's `fs::copy` by [@woelper](https://github.com/woelper/)
 - [`owo-colors`](https://github.com/jam1garner/owo-colors): Vibrant colouring for displaying CLI execution by [@jam1garner](https://github.com/jam1garner)
 - [`thiserror`](https://github.com/dtolnay/thiserror): Helper for implementing `std::error::Error` by [@dtolnay](https://github.com/dtolnay)
+- [`which`](https://github.com/harryfei/which-rs): Magic that makes August's `exec` work better by [@harryfei](https://github.com/harryfei/which-rs)
 
 If you use August in your project, you can add this badge to your README: [![Built with August](https://img.shields.io/badge/built%20with-august-blueviolet)](https://github.com/ScratchCat458/august-build)
 ```markdown
