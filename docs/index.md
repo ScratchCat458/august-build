@@ -6,34 +6,37 @@ hide:
 
 # Welcome
 
-August is a build system much like others of the task-based genre.
-It uses a custom syntax for configuring builds and can import other files for the purpose of modularity.
+August is a task-based build system with a strong focus on parallelism.
+It is written in Rust, a language known for its stability and performance and relies on custom syntax to describe the build process.
 
-It is a very significant part of my work in software development and creating this has taught me a lot about parsing and error handling.
+August's name is derived from the name of a *certain* character, from a *certain* game,
+whose name is derived from the name of a *certain* German aircraft carrier.[^1]
+
+[^1]: [For those who are curious...](https://azurlane.koumakan.jp/wiki/August_von_Parseval)
 
 ## Quick Links
-[Start Here :material-arrow-right:](getting-started){ .md-button .md-button--primary }
+[Start Here :material-arrow-right:](guide/tutorial.md){ .md-button .md-button--primary }
 Learn how to use August to write build scripts using Rust and Cargo as an example use case.
 
-[CLI Usage :octicons-terminal-24:](getting-started/cli){ .md-button }
+[CLI Usage :octicons-terminal-24:](guide/cli.md){ .md-button }
 A guide to all of the commands in the August CLI tool
 
-[Impl Docs :material-tools:](implementation){ .md-button }
-How August is designed
+[Impl Docs :material-tools:](impl.md){ .md-button }
+All about the design of August
 
 ## Brilliant Crates
 August is only made possible thanks to the efforts of many others.
 Here they all are:
 
-- [`ariadne`](https://github.com/zesterer/ariadne): Beautiful parser error handling by [@zesterer](https://github.com/zesterer) 
+- [`ariadne`](https://github.com/zesterer/ariadne): Beautiful parser error handling by [@zesterer](https://github.com/zesterer)
+- [`chumsky`](https://github.com/zesterer/chumsky): My new favourite parser combinator library (also by [@zesterer](https://github.com/zesterer))
 - [`clap`](https://github.com/clap-rs/clap): Derive-based command-line argument parser
 - [`clap_complete`](https://github.com/clap-rs/clap/tree/master/clap_complete): Generator for command line autocompletions, see `august completions`
 - [`comfy-table`](https://github.com/nukesor/comfy-table): Beautiful table generation for `august info` and `august inspect` by [@Nukesor](https://github.com/nukesor)
-- [`dirs`](https://github.com/dirs-dev/dirs-rs): Used exclusively for finding the home directory
+- [`dircpy`](https://github.com/woelper/dircpy/): Recursive directory copying for August's `fs::copy` by [@woelper](https://github.com/woelper/)
 - [`owo-colors`](https://github.com/jam1garner/owo-colors): Vibrant colouring for displaying CLI execution by [@jam1garner](https://github.com/jam1garner)
-- [`run-script`](https://github.com/sagiegurari/run_script): Used so I don't have to think about argument separation in the `exec` command by [@sagiegurari](https://github.com/sagiegurari)
-- [`walkdir`](https://github.com/BurntSushi/walkdir): Directory recursion for module resolution by [@BurntSushi](https://github.com/BurntSushi)
-- [`tracing`](https://github.com/tokio-rs/tracing) and [`tracing-subscriber`](https://github.com/tokio-rs/tracing/tree/master/tracing-subscriber): Nice app-level diagnostics by the [@tokio-rs](https://github.com/tokio-rs) team
+- [`thiserror`](https://github.com/dtolnay/thiserror): Helper for implementing `std::error::Error` by [@dtolnay](https://github.com/dtolnay)
+- [`which`](https://github.com/harryfei/which-rs): Magic that makes August's `exec` work better by [@harryfei](https://github.com/harryfei/which-rs)
 
 ## Show off in your repo 
 If you use August in your project, you can add this badge to your README: [![Built with August](https://img.shields.io/badge/built%20with-august-blueviolet)](https://github.com/ScratchCat458/august-build)

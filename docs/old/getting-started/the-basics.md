@@ -121,4 +121,4 @@ If your create a task that isn't assigned to a pragma you can use the more gener
 august run build
 ```
 
-[Next Steps :material-arrow-right:](../extending-august){ .md-button } 
+[Next Steps :material-arrow-right:](extending-august.md){ .md-button } 

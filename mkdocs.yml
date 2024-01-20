@@ -69,11 +69,16 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js
 
 nav:
-  - test.md
   - Welcome:
     - index.md
-  - Getting Started:
-    - test.md
+  - Guide:
+    - guide\installation.md
+    - guide\tutorial.md
+    - guide\migrate.md
+    - Reference:
+      - guide\cli.md
+      - guide\commands.md
+  - impl.md
   - Pre 0.5: 
     - old\index.md
     - old\getting-started\index.md

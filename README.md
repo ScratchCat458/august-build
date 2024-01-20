@@ -6,8 +6,7 @@
 
 ![August Logo](https://raw.githubusercontent.com/ScratchCat458/august-build/master/docs/images/August%20Build.svg) 
 
-August is a build system much like others of the task-based genre.
-It uses a custom syntax for configuring builds and can import other files for the purpose of modularity.
+August is a task-based build system with a strong focus on parallelism.
 
 ## Installation
 The recommended installation method is via Cargo:
