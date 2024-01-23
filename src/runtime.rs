@@ -12,6 +12,7 @@ use std::{
     thread,
 };
 
+use crossbeam_utils::Backoff;
 use dircpy::copy_dir;
 use thiserror::Error;
 use which::which;
@@ -153,9 +154,11 @@ impl Runtime {
                 })
                 .for_each(|(d, uos)| {
                     self.notifier.block_on_dep(unit_name, d.inner());
+                    let backoff = Backoff::new();
                     while uos.load(Ordering::Acquire) < UOS_COMPLETE {
                         // WARN: Graphic depiction of long running spin loop
-                        hint::spin_loop()
+                        hint::spin_loop();
+                        backoff.snooze();
                     }
                     if uos.load(Ordering::Relaxed) == UOS_FAILED {
                         errors.push(RuntimeError::FailedDependency(

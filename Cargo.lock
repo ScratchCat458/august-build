@@ -87,6 +87,7 @@ dependencies = [
  "clap",
  "clap_complete",
  "comfy-table",
+ "crossbeam-utils",
  "dircpy",
  "owo-colors",
  "thiserror",
