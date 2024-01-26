@@ -62,9 +62,9 @@ impl Module {
             expose.insert(prag, unit.clone());
         }
 
-        for (_, unit) in &units {
+        for unit in units.values() {
             for u in &unit.depends_on {
-                if !units.contains_key(&u) {
+                if !units.contains_key(u) {
                     errors.push(LowerError::NameError(u.clone()))
                 }
             }
@@ -72,7 +72,7 @@ impl Module {
             let mut dos_iter = unit.commands.iter().filter(|c| matches!(c, Command::Do(_)));
             while let Some(Command::Do(dos)) = dos_iter.next() {
                 for d in dos {
-                    if !units.contains_key(&d) {
+                    if !units.contains_key(d) {
                         errors.push(LowerError::NameError(d.clone()))
                     }
                 }
@@ -171,9 +171,9 @@ impl Unit {
             depends_on,
             meta,
             commands: cmds
-                .into_iter()
-                .cloned()
+                .iter()
                 .filter(|c| !matches!(c, Command::Meta(_) | Command::DependsOn(_)))
+                .cloned()
                 .collect(),
         })
     }

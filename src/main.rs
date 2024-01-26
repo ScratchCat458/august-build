@@ -15,7 +15,7 @@ use august_build::{
 };
 use chumsky::{Parser, Stream};
 use clap::CommandFactory;
-use cli::CLI;
+use cli::Cli;
 use comfy_table::{
     modifiers::{UTF8_ROUND_CORNERS, UTF8_SOLID_INNER_BORDERS},
     presets::UTF8_FULL,
@@ -38,7 +38,7 @@ fn main() {
 fn do_main() -> Result<(), CLIError> {
     use CLICommand::*;
 
-    let cli = <CLI as clap::Parser>::parse();
+    let cli = <Cli as clap::Parser>::parse();
 
     match cli.subcommand {
         Check => {
@@ -67,13 +67,13 @@ fn do_main() -> Result<(), CLIError> {
         Run { ref unit } => {
             let (module, code) = parse_file(&cli.script)?;
             if module.unit_exists(unit) {
-                run_unit(&cli, module, &code, &unit)?
+                run_unit(&cli, module, &code, unit)?
             } else {
                 Err(CLIError::NonExistentUnit(unit.clone()))?;
             }
         }
         Completions { shell } => {
-            clap_complete::generate(shell, &mut CLI::command(), "august", &mut stdout())
+            clap_complete::generate(shell, &mut Cli::command(), "august", &mut stdout())
         }
         Info => {
             let mut table = Table::new();
@@ -150,8 +150,8 @@ fn parse_file(src: impl AsRef<Path>) -> Result<(Module, String), CLIError> {
         .map(|module| (module, code))
 }
 
-fn run_unit(cli: &CLI, module: Module, code: &str, name: &str) -> Result<(), CLIError> {
-    let mut notifier = Notifier::new((&cli.script).to_string_lossy().to_string(), code);
+fn run_unit(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(), CLIError> {
+    let mut notifier = Notifier::new(cli.script.to_string_lossy().to_string(), code);
     if cli.quiet {
         notifier = notifier.silent();
     }
@@ -168,11 +168,7 @@ fn run_unit(cli: &CLI, module: Module, code: &str, name: &str) -> Result<(), CLI
 }
 
 fn inspect(module: &Module) {
-    let is_none_meta = module
-        .units()
-        .iter()
-        .map(|(_, v)| v.meta.is_empty())
-        .fold(true, |acc, b| acc && b);
+    let is_none_meta = module.units().iter().all(|(_, v)| v.meta.is_empty());
 
     let table = if is_none_meta {
         let mut table = Table::new();
@@ -198,48 +194,44 @@ fn inspect(module: &Module) {
             .apply_modifier(UTF8_ROUND_CORNERS)
             .apply_modifier(UTF8_SOLID_INNER_BORDERS);
         table.set_header(["Unit", "Dependencies", "@meta", ""]);
-        table.add_rows(
-            module
-                .units()
-                .iter()
-                .map(|(k, v)| {
-                    let mut rows = Vec::with_capacity(v.meta.len());
-                    let mut meta_iter = v.meta.iter();
-                    let mut dep_iter = v.deps().iter();
+        table.add_rows(module.units().iter().flat_map(|(k, v)| {
+            let mut rows = Vec::with_capacity(v.meta.len());
+            let mut meta_iter = v.meta.iter();
+            let mut dep_iter = v.deps().iter();
 
-                    if let Some((var, val)) = meta_iter.next() {
-                        rows.push(Row::from([
-                            k.inner_owned(),
-                            dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
-                            var.inner_owned(),
-                            val.to_string(),
-                        ]));
-                    } else {
-                        rows.push(Row::from([
-                            k.inner(),
-                            &dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
-                            "",
-                            "",
-                        ]))
-                    }
+            if let Some((var, val)) = meta_iter.next() {
+                rows.push(Row::from([
+                    k.inner_owned(),
+                    dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
+                    var.inner_owned(),
+                    val.to_string(),
+                ]));
+            } else {
+                rows.push(Row::from([
+                    k.inner(),
+                    &dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
+                    "",
+                    "",
+                ]))
+            }
 
-                    while let Some((var, val)) = meta_iter.next() {
-                        rows.push(Row::from([
-                            "".to_string(),
-                            dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
-                            var.inner_owned(),
-                            val.to_string(),
-                        ]));
-                    }
+            #[allow(clippy::while_let_on_iterator)]
+            while let Some((var, val)) = meta_iter.next() {
+                rows.push(Row::from([
+                    "".to_string(),
+                    dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
+                    var.inner_owned(),
+                    val.to_string(),
+                ]));
+            }
 
-                    while let Some(dep) = dep_iter.next() {
-                        rows.push(Row::from(["", dep.inner(), "", ""]));
-                    }
+            #[allow(clippy::while_let_on_iterator)]
+            while let Some(dep) = dep_iter.next() {
+                rows.push(Row::from(["", dep.inner(), "", ""]));
+            }
 
-                    rows
-                })
-                .flatten(),
-        );
+            rows
+        }));
 
         table
     };

@@ -50,7 +50,7 @@ const UOS_FAILED: u8 = 3;
 impl Runtime {
     pub fn new(module: Module, notifier: Notifier) -> Self {
         let mut once = HashMap::with_capacity(module.units.len());
-        for (name, _) in &module.units {
+        for name in module.units.keys() {
             once.insert(name.clone(), AtomicU8::new(UOS_INCOMPLETE));
         }
 
@@ -90,6 +90,7 @@ impl Runtime {
                     .filter(|d| self.get_uos(d.inner()).load(Ordering::Acquire) == UOS_INCOMPLETE);
                 let first = deps.next();
 
+                #[allow(clippy::while_let_on_iterator)]
                 while let Some(name) = deps.next() {
                     let uos_state = self.get_uos(name.inner());
                     let uos = uos_state.compare_exchange(
@@ -175,7 +176,7 @@ impl Runtime {
         }
 
         for cmd in &unit.commands {
-            cmd.call(&self)?;
+            cmd.call(self)?;
         }
 
         self.notifier.complete(unit_name);
@@ -292,7 +293,7 @@ impl FsCommand {
                 Ok(())
             }
         }
-        .map_err(|e| RuntimeError::FsError(e))
+        .map_err(RuntimeError::FsError)
     }
 }
 
@@ -330,12 +331,18 @@ impl EnvCommand {
         use EnvCommand::*;
 
         match self {
-            SetVar(var, val) => Ok(env::set_var(var.inner(), val.inner())),
-            RemoveVar(var) => Ok(env::remove_var(var.inner())),
+            SetVar(var, val) => {
+                env::set_var(var.inner(), val.inner());
+                Ok(())
+            }
+            RemoveVar(var) => {
+                env::remove_var(var.inner());
+                Ok(())
+            }
             PathPush(p) => {
-                let mut path_var = env::var_os("PATH")
+                let mut path_var: Vec<_> = env::var_os("PATH")
                     .map(|i| env::split_paths(&i).collect())
-                    .unwrap_or_else(|| Vec::new());
+                    .unwrap_or_default();
                 path_var.push(canonicalize(p.inner()).unwrap());
 
                 let new_path = env::join_paths(path_var).map_err(RuntimeError::JoinPathsError)?;

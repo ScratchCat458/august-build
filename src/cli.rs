@@ -5,7 +5,7 @@ use clap_complete::Shell;
 
 #[derive(Debug, Clone, Parser)]
 #[command(author, version, about)]
-pub struct CLI {
+pub struct Cli {
     /// File path of the build script.
     #[arg(short, long, default_value = PathBuf::from("main.august").into_os_string())]
     pub script: PathBuf,

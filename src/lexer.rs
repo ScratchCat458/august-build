@@ -102,13 +102,14 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Range<usize>)>, Error = Simple<c
         just('}').to(Token::CloseDelim(Delim::Curly)),
     ));
 
-    let raw_ident = filter(|c: &char| match c.to_char() {
-        '!'..='&' | '*'..='+' | '-'..='.' | '0'..=';' | '=' | '?'..='Z' | '^'..='z' | '|' => true,
-        _ => false,
+    let raw_ident = filter(|c: &char| {
+        matches!(c.to_char(),
+        '!'..='&' | '*'..='+' | '-'..='.' | '0'..=';' | '=' | '?'..='Z' | '^'..='z' | '|')
     })
     .repeated()
     .at_least(1)
     .collect::<String>();
+
     let token = choice((
         keywords,
         delim,
