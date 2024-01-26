@@ -13,9 +13,11 @@ The recommended installation method is via Cargo:
 ```sh
 cargo install august-build
 ```
-To install from source, clone the repo, run the following command and copy out the binary:
+To install from source:
 ```sh
-cargo build --release
+git clone https://github.com/ScratchCat458/august-build
+cd august-build
+cargo install --path .
 ```
 
 ## Documentation
