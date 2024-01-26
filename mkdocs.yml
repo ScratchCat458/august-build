@@ -72,32 +72,32 @@ nav:
   - Welcome:
     - index.md
   - Guide:
-    - guide\installation.md
-    - guide\tutorial.md
-    - guide\migrate.md
+    - guide/index.md
+    - guide/tutorial.md
+    - guide/migrate.md
     - Reference:
-      - guide\cli.md
-      - guide\commands.md
+      - guide/cli.md
+      - guide/commands.md
   - impl.md
   - Pre 0.5: 
-    - old\index.md
-    - old\getting-started\index.md
-    - old\getting-started\cli.md
-    - old\getting-started\command-reference.md
-    - old\getting-started\extending-august.md
-    - old\getting-started\installation.md
-    - old\getting-started\the-basics.md
-    - old\implementation\index.md
-    - old\implementation\concepts\index.md
-    - old\implementation\concepts\command-def.md
-    - old\implementation\concepts\commands.md
-    - old\implementation\concepts\external-modules.md
-    - old\implementation\concepts\pragmas.md
-    - old\implementation\concepts\structural.md
-    - old\implementation\concepts\tasks.md
-    - old\implementation\parsing\index.md
-    - old\implementation\parsing\module-linking.md
-    - old\implementation\parsing\syntax.md
-    - old\implementation\parsing\tokenisation.md
-    - old\modules\cargo.md
+    - old/index.md
+    - old/getting-started/index.md
+    - old/getting-started/cli.md
+    - old/getting-started/command-reference.md
+    - old/getting-started/extending-august.md
+    - old/getting-started/installation.md
+    - old/getting-started/the-basics.md
+    - old/implementation/index.md
+    - old/implementation/concepts/index.md
+    - old/implementation/concepts/command-def.md
+    - old/implementation/concepts/commands.md
+    - old/implementation/concepts/external-modules.md
+    - old/implementation/concepts/pragmas.md
+    - old/implementation/concepts/structural.md
+    - old/implementation/concepts/tasks.md
+    - old/implementation/parsing/index.md
+    - old/implementation/parsing/module-linking.md
+    - old/implementation/parsing/syntax.md
+    - old/implementation/parsing/tokenisation.md
+    - old/modules/cargo.md
   
