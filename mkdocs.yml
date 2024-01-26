@@ -90,16 +90,18 @@ nav:
       - old/getting-started/the-basics.md
     - Implementation:
       - old/implementation/index.md
-      - old/implementation/concepts/index.md
-      - old/implementation/concepts/command-def.md
-      - old/implementation/concepts/commands.md
-      - old/implementation/concepts/external-modules.md
-      - old/implementation/concepts/pragmas.md
-      - old/implementation/concepts/structural.md
-      - old/implementation/concepts/tasks.md
-      - old/implementation/parsing/index.md
-      - old/implementation/parsing/module-linking.md
-      - old/implementation/parsing/syntax.md
-      - old/implementation/parsing/tokenisation.md
+      - Concepts:
+        - old/implementation/concepts/index.md
+        - old/implementation/concepts/command-def.md
+        - old/implementation/concepts/commands.md
+        - old/implementation/concepts/external-modules.md
+        - old/implementation/concepts/pragmas.md
+        - old/implementation/concepts/structural.md
+        - old/implementation/concepts/tasks.md
+      - Parsing:
+        - old/implementation/parsing/index.md
+        - old/implementation/parsing/module-linking.md
+        - old/implementation/parsing/syntax.md
+        - old/implementation/parsing/tokenisation.md
     - old/modules/cargo.md
   
