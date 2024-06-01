@@ -195,6 +195,7 @@ pub enum Command {
     Meta(Vec<(Spanned<String>, String)>),
     Do(Vec<Spanned<String>>),
     Exec(Vec<Spanned<String>>),
+    Concurrent(Vec<Box<Command>>),
 
     Fs(FsCommand),
     Io(IoCommand),

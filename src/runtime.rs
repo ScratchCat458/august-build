@@ -37,6 +37,8 @@ pub enum RuntimeError {
     FsError(FsError),
     #[error("{0}")]
     JoinPathsError(env::JoinPathsError),
+    #[error("Command {0:?} isn't supported on this runtime")]
+    CommandUnsupported(Command),
 }
 
 #[derive(Debug)]
@@ -270,6 +272,8 @@ impl Command {
             Fs(cmd) => cmd.call(),
             Io(cmd) => cmd.call(),
             Env(cmd) => cmd.call(),
+
+            cmd => Err(RuntimeError::CommandUnsupported(cmd.clone())),
         }
     }
 
@@ -285,6 +289,23 @@ impl Command {
 
             Do(units) => units.iter().try_for_each(|unit| rt.run(unit.inner())),
             Exec(cmd) => exec_async(cmd).await,
+            Concurrent(cmds) => {
+                let mut errors = cmds
+                    .iter()
+                    .map(|cmd| cmd.call_async(rt))
+                    .collect::<FuturesUnordered<_>>()
+                    .into_stream()
+                    .filter_map(|res| ready(res.err()))
+                    .collect::<Vec<_>>()
+                    .await;
+
+                // TODO: Make less jank
+                if !errors.is_empty() {
+                    Err(errors.pop().unwrap())
+                } else {
+                    Ok(())
+                }
+            }
 
             Fs(cmd) => cmd.call_async().await,
             Io(cmd) => cmd.call(),

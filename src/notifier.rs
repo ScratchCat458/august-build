@@ -217,6 +217,12 @@ impl Notifier {
                 JoinPathsError(e) => {
                     eprintln!("{} Error occured when join to PATH: {e}", "[err]".red())
                 }
+                CommandUnsupported(cmd) => {
+                    eprintln!(
+                        "{} Command {cmd:?} is unsupported on the current runtime",
+                        "[err]".red()
+                    )
+                }
             }
         }
     }

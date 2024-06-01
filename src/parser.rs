@@ -96,46 +96,54 @@ pub fn unit() -> impl Parser<Token, AST, Error = Simple<Token>> {
 }
 
 pub fn command() -> impl Parser<Token, Command, Error = Simple<Token>> {
-    choice((
-        module_prefix("FS")
-            .ignore_then(fs_command())
-            .map(Command::Fs),
-        module_prefix("IO")
-            .ignore_then(io_command())
-            .map(Command::Io),
-        module_prefix("ENV")
-            .ignore_then(env_command())
-            .map(Command::Env),
-        with_ident("depends_on")
-            .ignore_then(ident().separated_by(just(Token::Comma)).round_delimited())
-            .map(Command::DependsOn),
-        with_ident("do")
-            .ignore_then(ident().separated_by(just(Token::Comma)).round_delimited())
-            .map(Command::Do),
-        with_ident("meta")
-            .to(Token::Attr)
-            .or(just(Token::Attr))
-            .ignore_then(
-                just(Token::Attr)
-                    .ignore_then(ident())
-                    .then(str().map(|s| s.0))
+    recursive(|cmd| {
+        choice((
+            module_prefix("FS")
+                .ignore_then(fs_command())
+                .map(Command::Fs),
+            module_prefix("IO")
+                .ignore_then(io_command())
+                .map(Command::Io),
+            module_prefix("ENV")
+                .ignore_then(env_command())
+                .map(Command::Env),
+            with_ident("depends_on")
+                .ignore_then(ident().separated_by(just(Token::Comma)).round_delimited())
+                .map(Command::DependsOn),
+            with_ident("do")
+                .ignore_then(ident().separated_by(just(Token::Comma)).round_delimited())
+                .map(Command::Do),
+            with_ident("meta")
+                .to(Token::Attr)
+                .or(just(Token::Attr))
+                .ignore_then(
+                    just(Token::Attr)
+                        .ignore_then(ident())
+                        .then(str().map(|s| s.0))
+                        .repeated()
+                        .round_delimited()
+                        .collect()
+                        .map(Command::Meta),
+                ),
+            with_ident("exec")
+                .to(Token::Tilde)
+                .or(just(Token::Tilde))
+                .ignore_then(
+                    ident()
+                        .or(str())
+                        .or(select! {|span| Token::RawIdent(i) => Spanned(i, span)})
+                        .repeated()
+                        .round_delimited()
+                        .map(Command::Exec),
+                ),
+            with_ident("concurrent").ignore_then(
+                cmd.map(Box::new)
                     .repeated()
-                    .round_delimited()
-                    .collect()
-                    .map(Command::Meta),
+                    .curly_delimited()
+                    .map(Command::Concurrent),
             ),
-        with_ident("exec")
-            .to(Token::Tilde)
-            .or(just(Token::Tilde))
-            .ignore_then(
-                ident()
-                    .or(str())
-                    .or(select! {|span| Token::RawIdent(i) => Spanned(i, span)})
-                    .repeated()
-                    .round_delimited()
-                    .map(Command::Exec),
-            ),
-    ))
+        ))
+    })
     .labelled("command call")
 }
 
