@@ -1,4 +1,5 @@
 use std::{
+    env::set_current_dir,
     fs::read_to_string,
     io::{stderr, stdout},
     path::{Path, PathBuf},
@@ -64,10 +65,17 @@ fn do_main() -> Result<(), CLIError> {
                 .clone();
             run_unit(&cli, module, &code, &this)?
         }
-        Run { ref unit } => {
+        Run {
+            ref unit,
+            unstable_async,
+        } => {
             let (module, code) = parse_file(&cli.script)?;
             if module.unit_exists(unit) {
-                run_unit(&cli, module, &code, unit)?
+                if unstable_async {
+                    run_unit_async(&cli, module, &code, unit)?
+                } else {
+                    run_unit(&cli, module, &code, unit)?
+                }
             } else {
                 Err(CLIError::NonExistentUnit(unit.clone()))?;
             }
@@ -97,13 +105,13 @@ fn do_main() -> Result<(), CLIError> {
 
 #[derive(Debug, Error)]
 enum CLIError {
-    #[error("Error during lexing")]
+    #[error("An error occurred during lexing")]
     Lexing,
-    #[error("Error during parsing")]
+    #[error("An error occurred during parsing")]
     Parsing,
-    #[error("Error during lowering")]
+    #[error("An error occurred during lowering")]
     Lowering,
-    #[error("Error during runtime")]
+    #[error("An error occurred during runtime")]
     Runtime,
     #[error("No unit assigned to {0:?}")]
     NonExposedPragma(Pragma),
@@ -111,6 +119,21 @@ enum CLIError {
     NonExistentUnit(String),
     #[error("{0:?}: {1}")]
     IO(PathBuf, std::io::Error),
+}
+
+fn relative_to(path: impl AsRef<Path>) -> Result<(), CLIError> {
+    set_current_dir(path.as_ref().parent().ok_or_else(|| {
+        CLIError::IO(
+            path.as_ref().to_path_buf(),
+            std::io::Error::new(
+                std::io::ErrorKind::Other,
+                "Path provided for script doesn't have a parent directory",
+            ),
+        )
+    })?)
+    .map_err(|io| CLIError::IO(path.as_ref().to_path_buf(), io))?;
+
+    Ok(())
 }
 
 fn parse_file(src: impl AsRef<Path>) -> Result<(Module, String), CLIError> {
@@ -151,6 +174,8 @@ fn parse_file(src: impl AsRef<Path>) -> Result<(Module, String), CLIError> {
 }
 
 fn run_unit(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(), CLIError> {
+    relative_to(&cli.script)?;
+
     let mut notifier = Notifier::new(cli.script.to_string_lossy().to_string(), code);
     if cli.quiet {
         notifier = notifier.silent();
@@ -165,6 +190,28 @@ fn run_unit(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(), CLI
         runtime.notifier().err(&[e]);
         CLIError::Runtime
     })
+}
+
+fn run_unit_async(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(), CLIError> {
+    relative_to(&cli.script)?;
+
+    let mut notifier = Notifier::new(cli.script.to_string_lossy().to_string(), code);
+    if cli.quiet {
+        notifier = notifier.silent();
+    }
+    if cli.verbose {
+        notifier = notifier.verbose();
+    }
+
+    let runtime = Runtime::new(module, notifier);
+
+    tokio::runtime::Runtime::new()
+        .unwrap()
+        .block_on(runtime.run_async(name))
+        .map_err(|e| {
+            runtime.notifier().err(&[e]);
+            CLIError::Runtime
+        })
 }
 
 fn inspect(module: &Module) {

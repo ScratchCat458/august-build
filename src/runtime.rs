@@ -2,19 +2,23 @@ use std::{
     collections::HashMap,
     env,
     fs::{self, canonicalize},
+    future::Future,
     hint, io,
     path::Path,
-    process::{self},
+    process::{self, Stdio},
     sync::{
         atomic::{AtomicU8, Ordering},
         Mutex,
     },
+    task::Poll,
     thread,
 };
 
 use crossbeam_utils::Backoff;
 use dircpy::copy_dir;
+use futures::{future::ready, stream::FuturesUnordered, StreamExt, TryStreamExt};
 use thiserror::Error;
+use tokio::task::block_in_place;
 use which::which;
 
 use crate::{
@@ -183,6 +187,70 @@ impl Runtime {
 
         Ok(())
     }
+
+    pub async fn run_async(&self, unit_name: &str) -> Result<(), RuntimeError> {
+        let (unit_span, unit) = self.get_unit(unit_name);
+
+        self.notifier.run(unit_name);
+
+        if !unit.depends_on.is_empty() {
+            let futs = unit
+                .depends_on
+                .iter()
+                .map(|dep| {
+                    Box::pin(async move {
+                        let uos_state = self.get_uos(dep.inner());
+                        let uos = uos_state.compare_exchange(
+                            UOS_INCOMPLETE,
+                            UOS_IN_PROGRESS,
+                            Ordering::Acquire,
+                            Ordering::Relaxed,
+                        );
+                        match uos {
+                            Ok(_) => {
+                                self.notifier.start_dep(unit_name, dep.inner());
+                                match self.run_async(dep.inner()).await {
+                                    Err(e) => {
+                                        uos_state.store(UOS_FAILED, Ordering::Release);
+                                        Err(e)
+                                    }
+                                    Ok(o) => {
+                                        uos_state.store(UOS_COMPLETE, Ordering::Release);
+                                        Ok(o)
+                                    }
+                                }
+                            }
+                            Err(UOS_FAILED) => Err(RuntimeError::FailedDependency(
+                                unit_name.to_owned(),
+                                dep.clone(),
+                            )),
+                            Err(UOS_IN_PROGRESS) => BlockOnDepFuture { uos: uos_state }
+                                .await
+                                .map_err(|f| f(unit_name.to_owned(), dep.clone())),
+                            _ => Ok(()),
+                        }
+                    })
+                })
+                .collect::<FuturesUnordered<_>>();
+
+            let errors = futs
+                .into_stream()
+                .filter_map(|res| ready(res.err()))
+                .collect::<Vec<_>>()
+                .await;
+            if !errors.is_empty() {
+                self.notifier.err(&errors);
+                return Err(RuntimeError::DependencyError(unit_span.clone()));
+            }
+        }
+        for cmd in &unit.commands {
+            cmd.call_async(self).await?;
+        }
+
+        self.notifier.complete(unit_name);
+
+        Ok(())
+    }
 }
 
 impl Command {
@@ -192,7 +260,7 @@ impl Command {
         rt.notifier.call(self);
 
         match self {
-            // no op, shouldn't be Vec<Command>
+            // no op, shouldn't be in Vec<Command>
             DependsOn(_) => Ok(()),
             Meta(_) => Ok(()),
 
@@ -200,6 +268,25 @@ impl Command {
             Exec(cmd) => exec(cmd),
 
             Fs(cmd) => cmd.call(),
+            Io(cmd) => cmd.call(),
+            Env(cmd) => cmd.call(),
+        }
+    }
+
+    pub async fn call_async(&self, rt: &Runtime) -> Result<(), RuntimeError> {
+        use Command::*;
+
+        rt.notifier.call(self);
+
+        match self {
+            // no op, shouldn't be in Vec<Command>
+            DependsOn(_) => Ok(()),
+            Meta(_) => Ok(()),
+
+            Do(units) => units.iter().try_for_each(|unit| rt.run(unit.inner())),
+            Exec(cmd) => exec_async(cmd).await,
+
+            Fs(cmd) => cmd.call_async().await,
             Io(cmd) => cmd.call(),
             Env(cmd) => cmd.call(),
         }
@@ -217,7 +304,41 @@ fn exec(cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
         )
     })?)
     .args(args)
+    .stdout(Stdio::inherit())
+    .stderr(Stdio::inherit())
     .output()
+    .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
+
+    if !exec.status.success() {
+        return Err(RuntimeError::ExecutionFailure(
+            cmd.to_vec(),
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("Process returned non-successfully with {}.", exec.status),
+            ),
+        ));
+    }
+
+    Ok(())
+}
+
+async fn exec_async(cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
+    use tokio::process;
+
+    let prog = &cmd[0];
+    let args = cmd[1..].iter().map(Spanned::inner);
+
+    let exec = process::Command::new(which(prog.inner()).map_err(|e| {
+        RuntimeError::ExecutionFailure(
+            cmd.to_vec(),
+            io::Error::new(io::ErrorKind::NotFound, e.to_string()),
+        )
+    })?)
+    .args(args)
+    .stdout(Stdio::inherit())
+    .stderr(Stdio::inherit())
+    .output()
+    .await
     .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
 
     if !exec.status.success() {
@@ -295,6 +416,74 @@ impl FsCommand {
         }
         .map_err(RuntimeError::FsError)
     }
+
+    pub async fn call_async(&self) -> Result<(), RuntimeError> {
+        use tokio::fs;
+        use FsCommand::*;
+
+        match self {
+            Create(p) => fs::File::create(p.inner())
+                .await
+                .map(|_| ())
+                .map_err(|io| FsError::CreateFileError(p.clone(), io)),
+            CreateDir(p) => fs::create_dir_all(p.inner())
+                .await
+                .map_err(|io| FsError::CreateDirError(p.clone(), io)),
+            Remove(p) => {
+                let path: &Path = p.inner().as_ref();
+                if path.is_dir() {
+                    fs::remove_dir_all(path).await
+                } else {
+                    fs::remove_file(path).await
+                }
+                .map_err(|io| FsError::RemoveError(p.clone(), io))
+            }
+            Copy(src, dst) => {
+                let src_path: &Path = src.inner().as_ref();
+                if src_path.is_dir() {
+                    // No async variant for dircpy
+                    block_in_place(|| copy_dir(src_path, dst.inner()))
+                } else {
+                    fs::copy(src_path, dst.inner()).await.map(|_| ())
+                }
+                .map_err(|io| FsError::CopyError(src.clone(), dst.clone(), io))
+            }
+            Move(src, dst) => {
+                let src_path: &Path = src.inner().as_ref();
+                if src_path.is_dir() {
+                    // No async variant for dircpy
+                    block_in_place(|| copy_dir(src_path, dst.inner()))
+                } else {
+                    fs::copy(src_path, dst.inner()).await.map(|_| ())
+                }
+                .map_err(|io| {
+                    RuntimeError::FsError(FsError::CopyError(src.clone(), dst.clone(), io))
+                })?;
+
+                if src_path.is_dir() {
+                    fs::remove_dir_all(src_path).await
+                } else {
+                    fs::remove_file(src_path).await
+                }
+                .map_err(|io| FsError::RemoveError(src.clone(), io))
+            }
+            PrintFile(p) => {
+                let contents = fs::read_to_string(p.inner())
+                    .await
+                    .map_err(|io| RuntimeError::FsError(FsError::FileAccessError(p.clone(), io)))?;
+                println!("{contents}");
+                Ok(())
+            }
+            EPrintFile(p) => {
+                let contents = fs::read_to_string(p.inner())
+                    .await
+                    .map_err(|io| RuntimeError::FsError(FsError::FileAccessError(p.clone(), io)))?;
+                eprintln!("{contents}");
+                Ok(())
+            }
+        }
+        .map_err(RuntimeError::FsError)
+    }
 }
 
 #[derive(Debug, Error)]
@@ -362,6 +551,29 @@ impl EnvCommand {
 
                 Ok(())
             }
+        }
+    }
+}
+
+struct BlockOnDepFuture<'a> {
+    uos: &'a AtomicU8,
+}
+
+impl Future for BlockOnDepFuture<'_> {
+    type Output = Result<(), fn(String, Spanned<String>) -> RuntimeError>;
+
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        if self.uos.load(Ordering::Acquire) < UOS_COMPLETE {
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
+        }
+
+        if self.uos.load(Ordering::Relaxed) == UOS_FAILED {
+            Poll::Ready(Err(|unit_name, dep_name| {
+                RuntimeError::FailedDependency(unit_name, dep_name)
+            }))
+        } else {
+            Poll::Ready(Ok(()))
         }
     }
 }

@@ -10,7 +10,7 @@ unit Build {
 
   depends_on(Test)
 
-  fs::eprint_file("Cargo.toml")
+  fs::eprint_file("../Cargo.toml")
   exec(cargo build)
 }
 
