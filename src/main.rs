@@ -67,14 +67,14 @@ fn do_main() -> Result<(), CLIError> {
         }
         Run {
             ref unit,
-            unstable_async,
+            threads_runtime,
         } => {
             let (module, code) = parse_file(&cli.script)?;
             if module.unit_exists(unit) {
-                if unstable_async {
-                    run_unit_async(&cli, module, &code, unit)?
-                } else {
+                if threads_runtime {
                     run_unit(&cli, module, &code, unit)?
+                } else {
+                    run_unit_async(&cli, module, &code, unit)?
                 }
             } else {
                 Err(CLIError::NonExistentUnit(unit.clone()))?;

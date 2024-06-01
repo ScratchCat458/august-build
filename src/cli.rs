@@ -37,8 +37,8 @@ pub enum CLICommand {
     /// Runs the unit provided as an argument
     Run {
         unit: String,
-        /// [UNSTABLE] Runs tasks on Tokio instead of threads
-        #[arg(short = 'A', long = "async")]
-        unstable_async: bool,
+        /// [deprecated] Runs tasks on threads
+        #[arg(long = "deprecated-threads-runtime")]
+        threads_runtime: bool,
     },
 }
