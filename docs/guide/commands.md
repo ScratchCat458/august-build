@@ -59,6 +59,44 @@ Runs a unit sequentially.
     do(B)
     ```
 
+## Concurrency Block
+
+:material-tag: 0.6
+
+```august
+concurrent {
+    do(A)
+    ~(cargo build)
+    ~(npm run build)
+}
+```
+
+---
+Runs multiple commands at the same time.
+
+August runs the commands in a unit sequentially and a unit's dependencies in parallel.
+The concurrency block is useful for running multiple independent commands inline rather than creating new units.
+
+The example above can be written without the concurrency block like so:
+```august
+unit ConcurrencyBlock {
+    depends_on(__command_a, __command_b, __command_c)
+}
+
+unit __command_a {
+    do(A)
+}
+
+unit __command_b {
+    ~(cargo build)
+}
+
+unit __command_c {
+    ~(npm run build)
+}
+```
+
+
 ## Module: fs
 
 ### Create File

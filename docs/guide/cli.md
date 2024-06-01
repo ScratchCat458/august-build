@@ -104,6 +104,22 @@ Output:
 Hello!
 ```
 
+### `--deprecated-threads-runtime`
+
+:material-tag: 0.6
+
+Switches execution to the old thread-based runtime instead of the async runtime.
+
+!!! warning
+    I need to make it clear that use of this option is far from recommended.
+    It is deprecated for a reason.
+
+    The previous runtime would spawn a new thread for each dependency to do concurrency.
+    For many of the uses of August's Units, such as encapsulating the calling of a CLI tool,
+    the thread itself is useless and only exists to sit idly be an wait for the tool to finish.
+    The async runtime spawns units as tasks on Tokio, with blocking tasks being scheduled by Tokio as well.
+    This allows for better use of multithreaded concurrency through work-stealing and task switching.
+
 ## `august inspect`
 Tabular summary of the contents of a build script.
 Displays units, their dependencies and any other related metadata.
