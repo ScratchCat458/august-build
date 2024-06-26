@@ -395,33 +395,12 @@ impl FsCommand {
                 }
                 .map_err(|io| FsError::RemoveError(p.clone(), io))
             }
-            Copy(src, dst) => {
-                let src_path: &Path = src.inner().as_ref();
-                if src_path.is_dir() {
-                    copy_dir(src_path, dst.inner())
-                } else {
-                    fs::copy(src_path, dst.inner()).map(|_| ())
-                }
-                .map_err(|io| FsError::CopyError(src.clone(), dst.clone(), io))
-            }
-            Move(src, dst) => {
-                let src_path: &Path = src.inner().as_ref();
-                if src_path.is_dir() {
-                    copy_dir(src_path, dst.inner())
-                } else {
-                    fs::copy(src_path, dst.inner()).map(|_| ())
-                }
-                .map_err(|io| {
-                    RuntimeError::FsError(FsError::CopyError(src.clone(), dst.clone(), io))
-                })?;
-
-                if src_path.is_dir() {
-                    fs::remove_dir_all(src_path)
-                } else {
-                    fs::remove_file(src_path)
-                }
-                .map_err(|io| FsError::RemoveError(src.clone(), io))
-            }
+            Copy(src, dst) => Ok(fs_copy_threaded(src, dst)?),
+            CopyTo(head, map) => Ok(expand_binary_map(head, map)
+                .try_for_each(|(src, dst)| fs_copy_threaded(&src, &dst))?),
+            Move(src, dst) => Ok(fs_move_threaded(src, dst)?),
+            MoveTo(head, map) => Ok(expand_binary_map(head, map)
+                .try_for_each(|(src, dst)| fs_move_threaded(&src, &dst))?),
             PrintFile(p) => {
                 let contents = fs::read_to_string(p.inner())
                     .map_err(|io| RuntimeError::FsError(FsError::FileAccessError(p.clone(), io)))?;
@@ -459,34 +438,19 @@ impl FsCommand {
                 }
                 .map_err(|io| FsError::RemoveError(p.clone(), io))
             }
-            Copy(src, dst) => {
-                let src_path: &Path = src.inner().as_ref();
-                if src_path.is_dir() {
-                    // No async variant for dircpy
-                    block_in_place(|| copy_dir(src_path, dst.inner()))
-                } else {
-                    fs::copy(src_path, dst.inner()).await.map(|_| ())
+            Copy(src, dst) => Ok(fs_copy_async(src, dst).await?),
+            CopyTo(head, map) => {
+                for (src, dst) in expand_binary_map(head, map) {
+                    fs_copy_async(&src, &dst).await?;
                 }
-                .map_err(|io| FsError::CopyError(src.clone(), dst.clone(), io))
+                Ok(())
             }
-            Move(src, dst) => {
-                let src_path: &Path = src.inner().as_ref();
-                if src_path.is_dir() {
-                    // No async variant for dircpy
-                    block_in_place(|| copy_dir(src_path, dst.inner()))
-                } else {
-                    fs::copy(src_path, dst.inner()).await.map(|_| ())
+            Move(src, dst) => Ok(fs_move_async(src, dst).await?),
+            MoveTo(head, map) => {
+                for (src, dst) in expand_binary_map(head, map) {
+                    fs_move_async(&src, &dst).await?;
                 }
-                .map_err(|io| {
-                    RuntimeError::FsError(FsError::CopyError(src.clone(), dst.clone(), io))
-                })?;
-
-                if src_path.is_dir() {
-                    fs::remove_dir_all(src_path).await
-                } else {
-                    fs::remove_file(src_path).await
-                }
-                .map_err(|io| FsError::RemoveError(src.clone(), io))
+                Ok(())
             }
             PrintFile(p) => {
                 let contents = fs::read_to_string(p.inner())
@@ -505,6 +469,76 @@ impl FsCommand {
         }
         .map_err(RuntimeError::FsError)
     }
+}
+
+fn expand_binary_map<'a>(
+    head: &'a Spanned<String>,
+    map: &'a [(Spanned<String>, Option<Spanned<String>>)],
+) -> impl Iterator<Item = (&'a Spanned<String>, Spanned<String>)> + 'a {
+    map.iter().map(|(src, dst)| {
+        let new_dst = dst
+            .as_ref()
+            .map(|dst| head.clone().map(extend_path(dst.inner())))
+            .unwrap_or_else(|| head.clone().map(extend_path(src.inner())));
+        (src, new_dst)
+    })
+}
+
+fn extend_path(end: &str) -> impl Fn(String) -> String + '_ {
+    |mut head| {
+        if !head.ends_with('/') && !head.ends_with('\\') {
+            head.push('/');
+        }
+        head.push_str(end);
+        head
+    }
+}
+
+async fn fs_move_async(src: &Spanned<String>, dst: &Spanned<String>) -> Result<(), RuntimeError> {
+    use tokio::fs;
+    fs_copy_async(src, dst).await?;
+
+    let src_path: &Path = src.inner().as_ref();
+    if src_path.is_dir() {
+        fs::remove_dir_all(src_path).await
+    } else {
+        fs::remove_file(src_path).await
+    }
+    .map_err(|io| RuntimeError::FsError(FsError::RemoveError(src.clone(), io)))
+}
+
+async fn fs_copy_async(src: &Spanned<String>, dst: &Spanned<String>) -> Result<(), RuntimeError> {
+    use tokio::fs;
+    let src_path: &Path = src.inner().as_ref();
+    if src_path.is_dir() {
+        // No async variant for dircpy
+        block_in_place(|| copy_dir(src_path, dst.inner()))
+    } else {
+        fs::copy(src_path, dst.inner()).await.map(|_| ())
+    }
+    .map_err(|io| RuntimeError::FsError(FsError::CopyError(src.clone(), dst.clone(), io)))
+}
+
+fn fs_move_threaded(src: &Spanned<String>, dst: &Spanned<String>) -> Result<(), RuntimeError> {
+    fs_copy_threaded(src, dst)?;
+
+    let src_path: &Path = src.inner().as_ref();
+    if src_path.is_dir() {
+        fs::remove_dir_all(src_path)
+    } else {
+        fs::remove_file(src_path)
+    }
+    .map_err(|io| RuntimeError::FsError(FsError::RemoveError(src.clone(), io)))
+}
+
+fn fs_copy_threaded(src: &Spanned<String>, dst: &Spanned<String>) -> Result<(), RuntimeError> {
+    let src_path: &Path = src.inner().as_ref();
+    if src_path.is_dir() {
+        copy_dir(src_path, dst.inner())
+    } else {
+        fs::copy(src_path, dst.inner()).map(|_| ())
+    }
+    .map_err(|io| RuntimeError::FsError(FsError::CopyError(src.clone(), dst.clone(), io)))
 }
 
 #[derive(Debug, Error)]

@@ -208,7 +208,15 @@ pub enum FsCommand {
     CreateDir(Spanned<String>),
     Remove(Spanned<String>),
     Move(Spanned<String>, Spanned<String>),
+    MoveTo(
+        Spanned<String>,
+        Vec<(Spanned<String>, Option<Spanned<String>>)>,
+    ),
     Copy(Spanned<String>, Spanned<String>),
+    CopyTo(
+        Spanned<String>,
+        Vec<(Spanned<String>, Option<Spanned<String>>)>,
+    ),
     PrintFile(Spanned<String>),
     EPrintFile(Spanned<String>),
 }

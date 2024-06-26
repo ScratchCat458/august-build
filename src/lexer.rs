@@ -18,6 +18,7 @@ pub enum Token {
     Attr,
     Tilde,
     DoubleColon,
+    DoubleArrow,
     Comma,
 
     OpenDelim(Delim),
@@ -50,6 +51,7 @@ impl Display for Token {
             Tilde => "~".fmt(f),
             Comma => ",".fmt(f),
             DoubleColon => "::".fmt(f),
+            DoubleArrow => "=>".fmt(f),
             OpenDelim(Round) => "(".fmt(f),
             OpenDelim(Square) => "[".fmt(f),
             OpenDelim(Arrow) => "<".fmt(f),
@@ -88,6 +90,7 @@ pub fn lexer() -> impl Parser<char, Vec<(Token, Range<usize>)>, Error = Simple<c
         just('@').to(Token::Attr),
         just('~').to(Token::Tilde),
         just("::").to(Token::DoubleColon),
+        just("=>").to(Token::DoubleArrow),
         just(',').to(Token::Comma),
     ));
 

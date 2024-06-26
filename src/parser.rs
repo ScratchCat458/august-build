@@ -21,6 +21,11 @@ impl<T> Spanned<T> {
     pub fn inner(&self) -> &T {
         &self.0
     }
+
+    pub fn map(mut self, mut f: impl FnMut(T) -> T) -> Self {
+        self.0 = f(self.0);
+        self
+    }
 }
 
 impl<T: Clone> Spanned<T> {
@@ -166,6 +171,14 @@ fn fs_command() -> impl Parser<Token, FsCommand, Error = Simple<Token>> {
                     .round_delimited(),
             )
             .map(|(src, dst)| FsCommand::Copy(src, dst)),
+        with_ident("copy_to")
+            .ignore_then(
+                str()
+                    .then_ignore(just(Token::Comma))
+                    .then(binary_map())
+                    .round_delimited(),
+            )
+            .map(|(src, paths)| FsCommand::CopyTo(src, paths)),
         with_ident("move")
             .ignore_then(
                 str()
@@ -174,6 +187,14 @@ fn fs_command() -> impl Parser<Token, FsCommand, Error = Simple<Token>> {
                     .round_delimited(),
             )
             .map(|(src, dst)| FsCommand::Move(src, dst)),
+        with_ident("move_to")
+            .ignore_then(
+                str()
+                    .then_ignore(just(Token::Comma))
+                    .then(binary_map())
+                    .round_delimited(),
+            )
+            .map(|(src, paths)| FsCommand::MoveTo(src, paths)),
         with_ident("print_file")
             .ignore_then(str().round_delimited())
             .map(FsCommand::PrintFile),
@@ -228,6 +249,15 @@ fn module_prefix(s: impl AsRef<str>) -> impl Parser<Token, (), Error = Simple<To
         .then_ignore(just(Token::DoubleColon))
         .or_not()
         .to(())
+}
+
+fn binary_map(
+) -> impl Parser<Token, Vec<(Spanned<String>, Option<Spanned<String>>)>, Error = Simple<Token>> + Clone
+{
+    str()
+        .then(just(Token::DoubleArrow).ignore_then(str()).or_not())
+        .separated_by(just(Token::Comma))
+        .square_delimited()
 }
 
 fn with_ident(
