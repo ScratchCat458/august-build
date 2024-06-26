@@ -166,7 +166,7 @@ fn fs_command() -> impl Parser<Token, FsCommand, Error = Simple<Token>> {
                     .round_delimited(),
             )
             .map(|(src, dst)| FsCommand::Copy(src, dst)),
-        with_ident("copy")
+        with_ident("move")
             .ignore_then(
                 str()
                     .then_ignore(just(Token::Comma))
