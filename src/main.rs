@@ -1,6 +1,6 @@
 use std::{
     env::set_current_dir,
-    fs::read_to_string,
+    fs::{canonicalize, read_to_string},
     io::{stderr, stdout},
     path::{Path, PathBuf},
     process::exit,
@@ -122,15 +122,28 @@ enum CLIError {
 }
 
 fn relative_to(path: impl AsRef<Path>) -> Result<(), CLIError> {
-    set_current_dir(path.as_ref().parent().ok_or_else(|| {
-        CLIError::IO(
-            path.as_ref().to_path_buf(),
-            std::io::Error::new(
-                std::io::ErrorKind::Other,
-                "Path provided for script doesn't have a parent directory",
-            ),
-        )
-    })?)
+    set_current_dir(
+        canonicalize(&path)
+            .map_err(|_| {
+                CLIError::IO(
+                    path.as_ref().to_path_buf(),
+                    std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Path provided for script cannot be canonicalized",
+                    ),
+                )
+            })?
+            .parent()
+            .ok_or_else(|| {
+                CLIError::IO(
+                    path.as_ref().to_path_buf(),
+                    std::io::Error::new(
+                        std::io::ErrorKind::Other,
+                        "Path provided for script doesn't have a parent directory",
+                    ),
+                )
+            })?,
+    )
     .map_err(|io| CLIError::IO(path.as_ref().to_path_buf(), io))?;
 
     Ok(())
@@ -217,12 +230,13 @@ fn run_unit_async(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(
 fn inspect(module: &Module) {
     let is_none_meta = module.units().iter().all(|(_, v)| v.meta.is_empty());
 
-    let table = if is_none_meta {
-        let mut table = Table::new();
-        table
-            .load_preset(UTF8_FULL)
-            .apply_modifier(UTF8_ROUND_CORNERS)
-            .apply_modifier(UTF8_SOLID_INNER_BORDERS);
+    let mut table = Table::new();
+    table
+        .load_preset(UTF8_FULL)
+        .apply_modifier(UTF8_ROUND_CORNERS)
+        .apply_modifier(UTF8_SOLID_INNER_BORDERS);
+
+    if is_none_meta {
         table.set_header(["Unit", "Dependencies"]);
         table.add_rows(module.units().iter().map(|(k, v)| {
             Row::from([
@@ -233,13 +247,7 @@ fn inspect(module: &Module) {
                     .trim_end(),
             ])
         }));
-        table
     } else {
-        let mut table = Table::new();
-        table
-            .load_preset(UTF8_FULL)
-            .apply_modifier(UTF8_ROUND_CORNERS)
-            .apply_modifier(UTF8_SOLID_INNER_BORDERS);
         table.set_header(["Unit", "Dependencies", "@meta", ""]);
         table.add_rows(module.units().iter().flat_map(|(k, v)| {
             let mut rows = Vec::with_capacity(v.meta.len());
@@ -279,9 +287,7 @@ fn inspect(module: &Module) {
 
             rows
         }));
-
-        table
-    };
+    }
 
     let mut expose_table = Table::new();
     expose_table
