@@ -1,6 +1,6 @@
 use std::path::PathBuf;
 
-use clap::{Parser, Subcommand};
+use clap::{Parser, Subcommand, ValueEnum};
 use clap_complete::Shell;
 
 #[derive(Debug, Clone, Parser)]
@@ -15,6 +15,9 @@ pub struct Cli {
     /// Causes unit execution to not produce any logging output
     #[arg(short, long)]
     pub quiet: bool,
+
+    #[arg(long, value_enum, default_value_t, alias("color"))]
+    pub colour: ColourSupport,
 
     #[command(subcommand)]
     pub subcommand: CLICommand,
@@ -41,4 +44,12 @@ pub enum CLICommand {
         #[arg(long = "deprecated-threads-runtime")]
         threads_runtime: bool,
     },
+}
+
+#[derive(Debug, Clone, Copy, Default, ValueEnum)]
+pub enum ColourSupport {
+    Always,
+    #[default]
+    Auto,
+    Never,
 }

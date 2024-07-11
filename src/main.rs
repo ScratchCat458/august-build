@@ -7,6 +7,7 @@ use std::{
 };
 
 use august_build::{
+    colours::OwoColorizeStderrSupported,
     error::{LowerErrorFormatter, ParserErrorFormatter},
     lexer::lexer,
     notifier::Notifier,
@@ -22,10 +23,9 @@ use comfy_table::{
     presets::UTF8_FULL,
     Row, Table,
 };
-use owo_colors::OwoColorize;
 use thiserror::Error;
 
-use crate::cli::CLICommand;
+use crate::cli::{CLICommand, ColourSupport};
 
 mod cli;
 
@@ -40,6 +40,14 @@ fn do_main() -> Result<(), CLIError> {
     use CLICommand::*;
 
     let cli = <Cli as clap::Parser>::parse();
+
+    match cli.colour {
+        ColourSupport::Always => {
+            owo_colors::set_override(true);
+        }
+        ColourSupport::Never => owo_colors::set_override(false),
+        _ => {}
+    }
 
     match cli.subcommand {
         Check => {

@@ -1,7 +1,7 @@
 use std::io::{self, stderr};
 
+use crate::colours::OwoColorizeStderrSupported;
 use ariadne::{Color, Label, Report, ReportKind, Source};
-use owo_colors::OwoColorize;
 
 use crate::{parser::Spanned, runtime::RuntimeError, Command};
 

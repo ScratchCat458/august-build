@@ -1,7 +1,7 @@
+use crate::colours::OwoColorizeStderrSupported;
 use crate::LowerError;
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use chumsky::{error::SimpleReason, prelude::Simple};
-use owo_colors::OwoColorize;
 use std::{
     fmt::Display,
     hash::Hash,

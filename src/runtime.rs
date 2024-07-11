@@ -397,10 +397,10 @@ impl FsCommand {
             }
             Copy(src, dst) => Ok(fs_copy_threaded(src, dst)?),
             CopyTo(head, map) => Ok(expand_binary_map(head, map)
-                .try_for_each(|(src, dst)| fs_copy_threaded(&src, &dst))?),
+                .try_for_each(|(src, dst)| fs_copy_threaded(src, &dst))?),
             Move(src, dst) => Ok(fs_move_threaded(src, dst)?),
             MoveTo(head, map) => Ok(expand_binary_map(head, map)
-                .try_for_each(|(src, dst)| fs_move_threaded(&src, &dst))?),
+                .try_for_each(|(src, dst)| fs_move_threaded(src, &dst))?),
             PrintFile(p) => {
                 let contents = fs::read_to_string(p.inner())
                     .map_err(|io| RuntimeError::FsError(FsError::FileAccessError(p.clone(), io)))?;
@@ -441,14 +441,14 @@ impl FsCommand {
             Copy(src, dst) => Ok(fs_copy_async(src, dst).await?),
             CopyTo(head, map) => {
                 for (src, dst) in expand_binary_map(head, map) {
-                    fs_copy_async(&src, &dst).await?;
+                    fs_copy_async(src, &dst).await?;
                 }
                 Ok(())
             }
             Move(src, dst) => Ok(fs_move_async(src, dst).await?),
             MoveTo(head, map) => {
                 for (src, dst) in expand_binary_map(head, map) {
-                    fs_move_async(&src, &dst).await?;
+                    fs_move_async(src, &dst).await?;
                 }
                 Ok(())
             }
