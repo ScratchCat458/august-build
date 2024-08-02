@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     env,
+    ffi::{OsStr, OsString},
     fs::{self, canonicalize},
     future::Future,
     hint, io,
@@ -14,6 +15,7 @@ use std::{
     thread,
 };
 
+use arc_swap::ArcSwap;
 use crossbeam_utils::Backoff;
 use dircpy::copy_dir;
 use futures::{future::ready, stream::FuturesUnordered, StreamExt, TryStreamExt};
@@ -43,6 +45,7 @@ pub struct Runtime {
     module: Module,
     notifier: Box<dyn Notifier + Sync>,
     once: HashMap<Spanned<String>, AtomicU8>,
+    env_vars: ArcSwap<HashMap<OsString, OsString>>,
 }
 
 const UOS_INCOMPLETE: u8 = 0;
@@ -52,15 +55,19 @@ const UOS_FAILED: u8 = 3;
 
 impl Runtime {
     pub fn new(module: Module, notifier: impl Notifier + Sync + 'static) -> Self {
-        let mut once = HashMap::with_capacity(module.units.len());
-        for name in module.units.keys() {
-            once.insert(name.clone(), AtomicU8::new(UOS_INCOMPLETE));
-        }
+        let once = module
+            .units
+            .keys()
+            .map(|name| (name.clone(), AtomicU8::new(UOS_INCOMPLETE)))
+            .collect();
+
+        let env_vars = ArcSwap::from_pointee(env::vars_os().collect());
 
         Self {
             module,
             notifier: Box::new(notifier),
             once,
+            env_vars,
         }
     }
 
@@ -264,11 +271,11 @@ impl Command {
             Meta(_) => Ok(()),
 
             Do(units) => units.iter().try_for_each(|unit| rt.run(unit.inner())),
-            Exec(cmd) => exec(cmd),
+            Exec(cmd) => exec(rt, cmd),
 
             Fs(cmd) => cmd.call(),
             Io(cmd) => cmd.call(),
-            Env(cmd) => cmd.call(),
+            Env(cmd) => cmd.call(rt),
 
             cmd => Err(RuntimeError::CommandUnsupported(cmd.clone())),
         }
@@ -285,7 +292,7 @@ impl Command {
             Meta(_) => Ok(()),
 
             Do(units) => units.iter().try_for_each(|unit| rt.run(unit.inner())),
-            Exec(cmd) => exec_async(cmd).await,
+            Exec(cmd) => exec_async(rt, cmd).await,
             Concurrent(cmds) => {
                 let mut errors = cmds
                     .iter()
@@ -306,12 +313,12 @@ impl Command {
 
             Fs(cmd) => cmd.call_async().await,
             Io(cmd) => cmd.call(),
-            Env(cmd) => cmd.call(),
+            Env(cmd) => cmd.call(rt),
         }
     }
 }
 
-fn exec(cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
+fn exec(rt: &Runtime, cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
     let prog = &cmd[0];
     let args = cmd[1..].iter().map(Spanned::inner);
 
@@ -324,6 +331,7 @@ fn exec(cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
     .args(args)
     .stdout(Stdio::inherit())
     .stderr(Stdio::inherit())
+    .envs(rt.env_vars.load().iter())
     .output()
     .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
 
@@ -340,7 +348,7 @@ fn exec(cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
     Ok(())
 }
 
-async fn exec_async(cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
+async fn exec_async(rt: &Runtime, cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
     use tokio::process;
 
     let prog = &cmd[0];
@@ -355,6 +363,7 @@ async fn exec_async(cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
     .args(args)
     .stdout(Stdio::inherit())
     .stderr(Stdio::inherit())
+    .envs(rt.env_vars.load().iter())
     .output()
     .await
     .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
@@ -568,39 +577,58 @@ impl IoCommand {
 }
 
 impl EnvCommand {
-    pub fn call(&self) -> Result<(), RuntimeError> {
+    pub fn call(&self, rt: &Runtime) -> Result<(), RuntimeError> {
         use EnvCommand::*;
 
+        // FIX: Find a way to make manipulating ENV vars safe
         match self {
             SetVar(var, val) => {
-                env::set_var(var.inner(), val.inner());
+                rt.env_vars.rcu(|envs| {
+                    let mut envs = HashMap::clone(envs);
+                    envs.insert(var.inner().into(), val.inner().into());
+                    envs
+                });
                 Ok(())
             }
             RemoveVar(var) => {
-                env::remove_var(var.inner());
+                rt.env_vars.rcu(|envs| {
+                    let mut envs = HashMap::clone(envs);
+                    envs.remove(OsStr::new(var.inner()));
+                    envs
+                });
                 Ok(())
             }
             PathPush(p) => {
-                let mut path_var: Vec<_> = env::var_os("PATH")
-                    .map(|i| env::split_paths(&i).collect())
-                    .unwrap_or_default();
-                path_var.push(canonicalize(p.inner()).unwrap());
+                rt.env_vars.rcu(|envs| {
+                    let mut envs = HashMap::clone(envs);
 
-                let new_path = env::join_paths(path_var).map_err(RuntimeError::JoinPathsError)?;
-                env::set_var("PATH", new_path);
+                    let mut path_var: Vec<_> = envs
+                        .get(OsStr::new("PATH"))
+                        .map(|i| env::split_paths(&i).collect())
+                        .unwrap_or_default();
+                    path_var.push(canonicalize(p.inner()).unwrap());
+
+                    env::join_paths(path_var)
+                        .ok()
+                        .map(|new_path| envs.insert("PATH".into(), new_path));
+                    envs
+                });
 
                 Ok(())
             }
             PathRemove(p) => {
-                if let Some(i) = env::var_os("PATH") {
-                    let mut path_var = env::split_paths(&i).collect::<Vec<_>>();
-                    path_var.retain(|i| i != &canonicalize(p.inner()).unwrap());
+                rt.env_vars.rcu(|envs| {
+                    let mut envs = HashMap::clone(envs);
+                    if let Some(i) = envs.get(OsStr::new("PATH")) {
+                        let mut path_var = env::split_paths(&i).collect::<Vec<_>>();
+                        path_var.retain(|i| i != &canonicalize(p.inner()).unwrap());
 
-                    let new_path =
-                        env::join_paths(path_var).map_err(RuntimeError::JoinPathsError)?;
-                    env::set_var("PATH", new_path);
-                }
-
+                        env::join_paths(path_var)
+                            .ok()
+                            .map(|new_path| envs.insert("PATH".into(), new_path));
+                    }
+                    envs
+                });
                 Ok(())
             }
         }
