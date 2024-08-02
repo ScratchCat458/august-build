@@ -1,5 +1,5 @@
 use crate::colours::OwoColorizeStderrSupported;
-use crate::LowerError;
+use august_build::LowerError;
 use ariadne::{Color, Label, Report, ReportKind, Source};
 use chumsky::{error::SimpleReason, prelude::Simple};
 use std::{

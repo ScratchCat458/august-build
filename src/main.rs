@@ -6,15 +6,7 @@ use std::{
     process::exit,
 };
 
-use august_build::{
-    colours::OwoColorizeStderrSupported,
-    error::{LowerErrorFormatter, ParserErrorFormatter},
-    lexer::lexer,
-    notifier::Notifier,
-    parser::parser,
-    runtime::Runtime,
-    Module, Pragma,
-};
+use august_build::{lexer::lexer, parser::parser, runtime::Runtime, Module, Pragma};
 use chumsky::{Parser, Stream};
 use clap::CommandFactory;
 use cli::Cli;
@@ -25,9 +17,17 @@ use comfy_table::{
 };
 use thiserror::Error;
 
-use crate::cli::{CLICommand, ColourSupport};
+use crate::{
+    cli::{CLICommand, ColourSupport},
+    colours::OwoColorizeStderrSupported,
+    error::{LowerErrorFormatter, ParserErrorFormatter},
+    notifier::{LogNotifier, SilentNotifier},
+};
 
 mod cli;
+mod colours;
+mod error;
+mod notifier;
 
 fn main() {
     if let Err(e) = do_main() {
@@ -197,18 +197,20 @@ fn parse_file(src: impl AsRef<Path>) -> Result<(Module, String), CLIError> {
 fn run_unit(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(), CLIError> {
     relative_to(&cli.script)?;
 
-    let mut notifier = Notifier::new(cli.script.to_string_lossy().to_string(), code);
-    if cli.quiet {
-        notifier = notifier.silent();
-    }
-    if cli.verbose {
-        notifier = notifier.verbose();
-    }
-
-    let runtime = Runtime::new(module, notifier);
+    let runtime = if cli.quiet {
+        Runtime::new(module, SilentNotifier)
+    } else {
+        Runtime::new(module, {
+            let mut n = LogNotifier::new(name, code);
+            if cli.verbose {
+                n = n.verbose();
+            }
+            n
+        })
+    };
 
     runtime.run(name).map_err(|e| {
-        runtime.notifier().err(&[e]);
+        runtime.notifier().error(&[e]);
         CLIError::Runtime
     })
 }
@@ -216,21 +218,23 @@ fn run_unit(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(), CLI
 fn run_unit_async(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(), CLIError> {
     relative_to(&cli.script)?;
 
-    let mut notifier = Notifier::new(cli.script.to_string_lossy().to_string(), code);
-    if cli.quiet {
-        notifier = notifier.silent();
-    }
-    if cli.verbose {
-        notifier = notifier.verbose();
-    }
-
-    let runtime = Runtime::new(module, notifier);
+    let runtime = if cli.quiet {
+        Runtime::new(module, SilentNotifier)
+    } else {
+        Runtime::new(module, {
+            let mut n = LogNotifier::new(name, code);
+            if cli.verbose {
+                n = n.verbose();
+            }
+            n
+        })
+    };
 
     tokio::runtime::Runtime::new()
         .unwrap()
         .block_on(runtime.run_async(name))
         .map_err(|e| {
-            runtime.notifier().err(&[e]);
+            runtime.notifier().error(&[e]);
             CLIError::Runtime
         })
 }

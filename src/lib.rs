@@ -3,10 +3,7 @@ use thiserror::Error;
 
 use parser::{Spanned, AST};
 
-pub mod colours;
-pub mod error;
 pub mod lexer;
-pub mod notifier;
 pub mod parser;
 pub mod runtime;
 

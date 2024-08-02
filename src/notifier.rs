@@ -1,32 +1,35 @@
-use std::io::{self, stderr};
+use std::io;
 
 use crate::colours::OwoColorizeStderrSupported;
 use ariadne::{Color, Label, Report, ReportKind, Source};
 
-use crate::{parser::Spanned, runtime::RuntimeError, Command};
+use august_build::{
+    parser::Spanned,
+    runtime::{Notifier, NotifierEvent, RuntimeError},
+    Command,
+};
 
 #[derive(Debug)]
-pub struct Notifier {
+pub struct SilentNotifier;
+
+impl Notifier for SilentNotifier {
+    fn on_event(&self, _event: NotifierEvent<'_>) {}
+}
+
+#[derive(Debug)]
+pub struct LogNotifier {
     file_name: String,
     code: String,
-    silent: bool,
     verbose: bool,
 }
 
-impl Notifier {
+impl LogNotifier {
     pub fn new(file_name: impl Into<String>, code: impl Into<String>) -> Self {
         Self {
             file_name: file_name.into(),
             code: code.into(),
-            silent: false,
             verbose: false,
         }
-    }
-
-    #[inline]
-    pub fn silent(mut self) -> Self {
-        self.silent = true;
-        self
     }
 
     #[inline]
@@ -35,54 +38,12 @@ impl Notifier {
         self
     }
 
-    pub fn run(&self, name: &str) {
-        if self.silent {
+    fn cmd_call(&self, cmd: &Command) {
+        if !self.verbose {
             return;
         }
-        let _guard = stderr().lock();
-        eprintln!("{} Begining work on unit {}", "[run]".green(), name.green())
-    }
-
-    pub fn complete(&self, name: &str) {
-        if self.silent {
-            return;
-        }
-        let _guard = stderr().lock();
-        eprintln!("{} Completed unit {}", "[run]".green(), name.green())
-    }
-
-    pub fn start_dep(&self, parent: &str, child: &str) {
-        if self.silent {
-            return;
-        }
-        let _guard = stderr().lock();
-        eprintln!(
-            "{} Spawning unit {} to resolve dependency of {}",
-            "[dep]".yellow(),
-            child.yellow(),
-            parent.yellow()
-        )
-    }
-
-    pub fn block_on_dep(&self, parent: &str, child: &str) {
-        if self.silent {
-            return;
-        }
-        let _guard = stderr().lock();
-        eprintln!(
-            "{} Blocking {} until {} reaches completion",
-            "[dep]".yellow(),
-            parent.yellow(),
-            child.yellow()
-        );
-    }
-
-    pub fn call(&self, cmd: &Command) {
-        if self.silent || !self.verbose {
-            return;
-        }
-        use crate::EnvCommand::*;
-        use crate::FsCommand::*;
+        use august_build::EnvCommand::*;
+        use august_build::FsCommand::*;
         use Command::*;
 
         let text = match cmd {
@@ -130,16 +91,12 @@ impl Notifier {
         };
 
         if let Some(inner) = text {
-            let _guard = stderr().lock();
             eprintln!("{} {inner}", "[cmd]".blue())
         }
     }
 
-    pub fn err(&self, errors: &[RuntimeError]) {
-        if self.silent {
-            return;
-        }
-        use crate::runtime::FsError::*;
+    fn err(&self, errors: &[RuntimeError]) {
+        use august_build::runtime::FsError::*;
         use RuntimeError::*;
 
         let fs_single = |p: &Spanned<String>, io: &io::Error, message: &str| {
@@ -224,6 +181,33 @@ impl Notifier {
                     )
                 }
             }
+        }
+    }
+}
+
+impl Notifier for LogNotifier {
+    fn on_event(&self, event: NotifierEvent<'_>) {
+        match event {
+            NotifierEvent::Call(cmd) => self.cmd_call(cmd),
+            NotifierEvent::Start(name) => {
+                eprintln!("{} Begining work on unit {}", "[run]".green(), name.green())
+            }
+            NotifierEvent::Complete(name) => {
+                eprintln!("{} Completed unit {}", "[run]".green(), name.green())
+            }
+            NotifierEvent::Error(err) => self.err(err),
+            NotifierEvent::Dependency { parent, name } => eprintln!(
+                "{} Spawning unit {} to resolve dependency of {}",
+                "[dep]".yellow(),
+                name.yellow(),
+                parent.yellow()
+            ),
+            NotifierEvent::BlockOn { parent, name } => eprintln!(
+                "{} Blocking {} until {} reaches completion",
+                "[dep]".yellow(),
+                parent.yellow(),
+                name.yellow()
+            ),
         }
     }
 }

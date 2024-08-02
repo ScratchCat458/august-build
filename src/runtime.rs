@@ -21,9 +21,7 @@ use thiserror::Error;
 use tokio::task::block_in_place;
 use which::which;
 
-use crate::{
-    notifier::Notifier, parser::Spanned, Command, EnvCommand, FsCommand, IoCommand, Module, Unit,
-};
+use crate::{parser::Spanned, Command, EnvCommand, FsCommand, IoCommand, Module, Unit};
 
 #[derive(Debug, Error)]
 pub enum RuntimeError {
@@ -41,10 +39,9 @@ pub enum RuntimeError {
     CommandUnsupported(Command),
 }
 
-#[derive(Debug)]
 pub struct Runtime {
     module: Module,
-    notifier: Notifier,
+    notifier: Box<dyn Notifier + Sync>,
     once: HashMap<Spanned<String>, AtomicU8>,
 }
 
@@ -54,7 +51,7 @@ const UOS_COMPLETE: u8 = 2;
 const UOS_FAILED: u8 = 3;
 
 impl Runtime {
-    pub fn new(module: Module, notifier: Notifier) -> Self {
+    pub fn new(module: Module, notifier: impl Notifier + Sync + 'static) -> Self {
         let mut once = HashMap::with_capacity(module.units.len());
         for name in module.units.keys() {
             once.insert(name.clone(), AtomicU8::new(UOS_INCOMPLETE));
@@ -62,13 +59,13 @@ impl Runtime {
 
         Self {
             module,
-            notifier,
+            notifier: Box::new(notifier),
             once,
         }
     }
 
-    pub fn notifier(&self) -> &Notifier {
-        &self.notifier
+    pub fn notifier(&self) -> &dyn Notifier {
+        &*self.notifier
     }
 
     fn get_unit(&self, name: impl Into<String>) -> (&Spanned<String>, &Unit) {
@@ -86,7 +83,7 @@ impl Runtime {
         let (unit_span, unit) = self.get_unit(unit_name);
         let errors = Mutex::new(Vec::new());
 
-        self.notifier.run(unit_name);
+        self.notifier.start(unit_name);
 
         if !unit.depends_on.is_empty() {
             thread::scope(|s| {
@@ -107,7 +104,7 @@ impl Runtime {
                     );
                     if uos.is_ok() {
                         s.spawn(|| {
-                            self.notifier.start_dep(unit_name, name.inner());
+                            self.notifier.dependency(unit_name, name.inner());
                             if let Err(e) = self.run(name.inner()) {
                                 uos_state.store(UOS_FAILED, Ordering::Release);
                                 errors.lock().unwrap().push(e);
@@ -132,7 +129,7 @@ impl Runtime {
                         Ordering::Relaxed,
                     );
                     if uos.is_ok() {
-                        self.notifier.start_dep(unit_name, first.inner());
+                        self.notifier.dependency(unit_name, first.inner());
                         if let Err(e) = self.run(first.inner()) {
                             uos_state.store(UOS_FAILED, Ordering::Release);
                             errors.lock().unwrap().push(e);
@@ -160,7 +157,7 @@ impl Runtime {
                     }
                 })
                 .for_each(|(d, uos)| {
-                    self.notifier.block_on_dep(unit_name, d.inner());
+                    self.notifier.block_on(unit_name, d.inner());
                     let backoff = Backoff::new();
                     while uos.load(Ordering::Acquire) < UOS_COMPLETE {
                         // WARN: Graphic depiction of long running spin loop
@@ -176,7 +173,7 @@ impl Runtime {
                 });
 
             if !errors.is_empty() {
-                self.notifier.err(&errors);
+                self.notifier.error(&errors);
                 return Err(RuntimeError::DependencyError(unit_span.clone()));
             }
         }
@@ -193,7 +190,7 @@ impl Runtime {
     pub async fn run_async(&self, unit_name: &str) -> Result<(), RuntimeError> {
         let (unit_span, unit) = self.get_unit(unit_name);
 
-        self.notifier.run(unit_name);
+        self.notifier.start(unit_name);
 
         if !unit.depends_on.is_empty() {
             let futs = unit
@@ -210,7 +207,7 @@ impl Runtime {
                         );
                         match uos {
                             Ok(_) => {
-                                self.notifier.start_dep(unit_name, dep.inner());
+                                self.notifier.dependency(unit_name, dep.inner());
                                 match self.run_async(dep.inner()).await {
                                     Err(e) => {
                                         uos_state.store(UOS_FAILED, Ordering::Release);
@@ -241,7 +238,7 @@ impl Runtime {
                 .collect::<Vec<_>>()
                 .await;
             if !errors.is_empty() {
-                self.notifier.err(&errors);
+                self.notifier.error(&errors);
                 return Err(RuntimeError::DependencyError(unit_span.clone()));
             }
         }
@@ -630,5 +627,46 @@ impl Future for BlockOnDepFuture<'_> {
         } else {
             Poll::Ready(Ok(()))
         }
+    }
+}
+
+pub enum NotifierEvent<'a> {
+    Call(&'a Command),
+    Start(&'a str),
+    Complete(&'a str),
+    Error(&'a [RuntimeError]),
+    Dependency { parent: &'a str, name: &'a str },
+    BlockOn { parent: &'a str, name: &'a str },
+}
+
+/// Trait to hook into runtime events, usually for logging.
+///
+/// Notifiers should only implement `on_event`.
+/// Other methods are convienience and delegate to `on_event`.
+pub trait Notifier {
+    fn on_event(&self, event: NotifierEvent<'_>);
+
+    fn call(&self, command: &Command) {
+        self.on_event(NotifierEvent::Call(command))
+    }
+
+    fn start(&self, name: &str) {
+        self.on_event(NotifierEvent::Start(name))
+    }
+
+    fn complete(&self, name: &str) {
+        self.on_event(NotifierEvent::Complete(name))
+    }
+
+    fn error(&self, errors: &[RuntimeError]) {
+        self.on_event(NotifierEvent::Error(errors))
+    }
+
+    fn dependency(&self, parent: &str, name: &str) {
+        self.on_event(NotifierEvent::Dependency { parent, name })
+    }
+
+    fn block_on(&self, parent: &str, name: &str) {
+        self.on_event(NotifierEvent::BlockOn { parent, name })
     }
 }

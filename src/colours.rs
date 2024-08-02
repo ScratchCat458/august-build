@@ -5,6 +5,7 @@ macro_rules! owo_colors_ext {
 ) => {
     impl<T: owo_colors::OwoColorize> $trait_name for T {}
 
+    #[allow(dead_code)]
     pub trait $trait_name: owo_colors::OwoColorize {
     $(
         #[$fg_meta]
