@@ -6,7 +6,7 @@ use std::{
     future::Future,
     hint, io,
     path::Path,
-    process::{self, Stdio},
+    process::Output,
     sync::{
         atomic::{AtomicU8, Ordering},
         Mutex,
@@ -21,7 +21,6 @@ use dircpy::copy_dir;
 use futures::{future::ready, stream::FuturesUnordered, StreamExt, TryStreamExt};
 use thiserror::Error;
 use tokio::task::block_in_place;
-use which::which;
 
 use crate::{parser::Spanned, Command, EnvCommand, FsCommand, IoCommand, Module, Unit};
 
@@ -319,66 +318,69 @@ impl Command {
 }
 
 fn exec(rt: &Runtime, cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
-    let prog = &cmd[0];
     let args = cmd[1..].iter().map(Spanned::inner);
 
-    let exec = process::Command::new(which(prog.inner()).map_err(|e| {
-        RuntimeError::ExecutionFailure(
-            cmd.to_vec(),
-            io::Error::new(io::ErrorKind::NotFound, e.to_string()),
-        )
-    })?)
-    .args(args)
-    .stdout(Stdio::inherit())
-    .stderr(Stdio::inherit())
-    .envs(rt.env_vars.load().iter())
-    .output()
-    .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
+    let exec = duct::cmd(cmd[0].inner(), args)
+        .full_env(rt.env_vars.load().iter())
+        .unchecked()
+        .run()
+        .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
 
     if !exec.status.success() {
-        return Err(RuntimeError::ExecutionFailure(
+        Err(RuntimeError::ExecutionFailure(
             cmd.to_vec(),
             io::Error::new(
                 io::ErrorKind::Other,
                 format!("Process returned non-successfully with {}.", exec.status),
             ),
-        ));
+        ))
+    } else {
+        Ok(())
     }
-
-    Ok(())
 }
 
 async fn exec_async(rt: &Runtime, cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
-    use tokio::process;
-
-    let prog = &cmd[0];
     let args = cmd[1..].iter().map(Spanned::inner);
 
-    let exec = process::Command::new(which(prog.inner()).map_err(|e| {
-        RuntimeError::ExecutionFailure(
-            cmd.to_vec(),
-            io::Error::new(io::ErrorKind::NotFound, e.to_string()),
-        )
-    })?)
-    .args(args)
-    .stdout(Stdio::inherit())
-    .stderr(Stdio::inherit())
-    .envs(rt.env_vars.load().iter())
-    .output()
-    .await
-    .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
+    let handle = duct::cmd(cmd[0].inner(), args)
+        .full_env(rt.env_vars.load().iter())
+        .unchecked()
+        .start()
+        .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
+    let fut = HandleFuture { handle };
+
+    let exec = fut
+        .await
+        .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
 
     if !exec.status.success() {
-        return Err(RuntimeError::ExecutionFailure(
+        Err(RuntimeError::ExecutionFailure(
             cmd.to_vec(),
             io::Error::new(
                 io::ErrorKind::Other,
                 format!("Process returned non-successfully with {}.", exec.status),
             ),
-        ));
+        ))
+    } else {
+        Ok(())
     }
+}
 
-    Ok(())
+struct HandleFuture {
+    handle: duct::Handle,
+}
+
+impl Future for HandleFuture {
+    type Output = io::Result<Output>;
+
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        if let Some(output) = self.handle.try_wait()? {
+            Poll::Ready(Ok(output.clone()))
+        } else {
+            cx.waker().wake_by_ref();
+            Poll::Pending
+        }
+    }
 }
 
 impl FsCommand {
