@@ -201,7 +201,13 @@ fn run_unit(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(), CLI
         Runtime::new(module, SilentNotifier)
     } else {
         Runtime::new(module, {
-            let mut n = LogNotifier::new(name, code);
+            let mut n = LogNotifier::new(
+                cli.script
+                    .file_name()
+                    .map(|p| p.to_string_lossy())
+                    .unwrap_or_default(),
+                code,
+            );
             if cli.verbose {
                 n = n.verbose();
             }
@@ -222,7 +228,13 @@ fn run_unit_async(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(
         Runtime::new(module, SilentNotifier)
     } else {
         Runtime::new(module, {
-            let mut n = LogNotifier::new(name, code);
+            let mut n = LogNotifier::new(
+                cli.script
+                    .file_name()
+                    .map(|p| p.to_string_lossy())
+                    .unwrap_or_default(),
+                code,
+            );
             if cli.verbose {
                 n = n.verbose();
             }
