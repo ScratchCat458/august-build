@@ -63,7 +63,7 @@ fn do_main() -> Result<(), CLIError> {
                 .unit_by_pragma(Pragma::Build)
                 .ok_or(CLIError::NonExposedPragma(Pragma::Build))?
                 .clone();
-            run_unit(&cli, module, &code, &this)?
+            run_unit_async(&cli, module, &code, &this)?
         }
         Test => {
             let (module, code) = parse_file(&cli.script)?;
@@ -71,7 +71,7 @@ fn do_main() -> Result<(), CLIError> {
                 .unit_by_pragma(Pragma::Test)
                 .ok_or(CLIError::NonExposedPragma(Pragma::Test))?
                 .clone();
-            run_unit(&cli, module, &code, &this)?
+            run_unit_async(&cli, module, &code, &this)?
         }
         Run {
             ref unit,
