@@ -63,6 +63,9 @@ Runs a unit sequentially.
 
 :material-tag: 0.6
 
+!!! warning 
+    This language feature is only useable on the async runtime as it would be incredibly expensive on threads.
+
 ```august
 concurrent {
     do(A)
@@ -73,6 +76,7 @@ concurrent {
 
 ---
 Runs multiple commands at the same time.
+Works best for long running operations like executing CLI tools.
 
 August runs the commands in a unit sequentially and a unit's dependencies in parallel.
 The concurrency block is useful for running multiple independent commands inline rather than creating new units.
@@ -155,6 +159,38 @@ Moves a file or directory to a different location.
     ```august
     copy("src", "dst")
     remove("src")
+    ```
+
+### Copy and Move Expansions
+
+:material-tag: 0.6
+
+```august
+fs::copy_to("dst", [
+    "src",
+    "src" => "dst"
+])
+
+fs::move_to("dst", [
+    "src",
+    "src" => "dst"
+])
+```
+
+---
+Expands to several `copy`/`move` calls to a common destination directory.
+
+!!! example
+    ```august
+    fs::copy_to("dst", [
+        "src",
+        "src" => "dst"
+    ])
+    ```
+    Is equivalent to the following:
+    ```august
+    copy("src", "dst/src")
+    copy("src", "dst/dst")
     ```
 
 

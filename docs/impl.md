@@ -139,7 +139,10 @@ do()
 ```
 Module names are case insensitive.
 
-## Runtime
+
+## Threads Runtime
+
+:material-tag: >=0.5  && < 0.7 
 
 `depends_on` runs its tasks in parallel. So let's define how this works.
 If only one task is specified, it will be run on the current thread.
@@ -234,3 +237,43 @@ flowchart TB
     A --> B --> C --> D --> E --> F
     D -->|hint::spin_loop|D 
 ```
+
+## Async Runtime
+
+:material-tag: 0.6.0
+
+Previously with August's restructuring in 0.5, units were lanuched on seperate threads for concurrency.
+This is wildly ineffecient and more importantly, places a cost on tasks as an abstraction.
+
+August now uses an async runtime model based on Tokio and `FuturesUnordered` (may be replaced with `JoinSet`).
+This means that a fixed number of threads are used but still allows for concurrent execution.
+
+Blocking on an in progress unit is also now implemented with futures instead of spin loop.
+Returns a function on error to prevent needing to store values to create an error in the future.
+```rust
+struct BlockOnDepFuture<'a> {
+    uos: &'a AtomicU8,
+}
+
+impl Future for BlockOnDepFuture<'_> {
+    type Output = Result<(), fn(String, Spanned<String>) -> RuntimeError>;
+
+    fn poll(self: std::pin::Pin<&mut Self>, cx: &mut std::task::Context<'_>) -> Poll<Self::Output> {
+        if self.uos.load(Ordering::Acquire) < UOS_COMPLETE {
+            cx.waker().wake_by_ref();
+            return Poll::Pending;
+        }
+
+        if self.uos.load(Ordering::Relaxed) == UOS_FAILED {
+            Poll::Ready(Err(|unit_name, dep_name| {
+                RuntimeError::FailedDependency(unit_name, dep_name)
+            }))
+        } else {
+            Poll::Ready(Ok(()))
+        }
+    }
+}
+```
+
+The threads runtime will still be avaliable in :material-tag: 0.6 via `august run --deprecated-threads-runtime`,
+but will be removed from the codebase :material-tag: 0.7.
