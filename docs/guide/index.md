@@ -17,7 +17,7 @@ cargo install --path .
 
 ## Graphical Installer (Windows)
 
-[Download](https://github.com/ScratchCat458/august-build/releases/download/v0.5.0/august-build-0.5.0-x86_64.msi){ .md-button }
+[Download](https://github.com/ScratchCat458/august-build/releases/download/v0.6.0/august-build-0.6.0-x86_64.msi){ .md-button }
 
 ## Prebuilt Binaries
 
