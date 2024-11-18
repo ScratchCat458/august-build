@@ -47,8 +47,7 @@ where
         let reports = self.errors.iter().map(|err| {
             let report = Report::<(String, Range<usize>)>::build(
                 ReportKind::Error,
-                self.file_name.clone(),
-                err.span().start,
+                (self.file_name.clone(), err.span()),
             );
 
             let report = if let SimpleReason::Unexpected = err.reason() {
@@ -214,7 +213,7 @@ impl LowerErrorFormatter {
 
                 match err {
                     DuplicateExpose(pragma, unit) => {
-                        Report::build(ReportKind::Error, self.file_name.clone(), unit.span().start)
+                        Report::build(ReportKind::Error, (self.file_name.clone(), unit.span()))
                             .with_message(format!(
                                 "Attempted to define another binding for pragma {:?}", pragma.cyan()
                             ))
@@ -223,7 +222,7 @@ impl LowerErrorFormatter {
                             .finish()
                     }
                     DuplicateUnit(fst, snd) => {
-                        Report::build(ReportKind::Error, self.file_name.clone(), fst.span().start)
+                        Report::build(ReportKind::Error, (self.file_name.clone(), fst.span()))
                             .with_message(format!("Attempted to define multiple units with the name {}", snd.cyan()))
                             .with_label(Label::new((self.file_name.clone(), fst.span())).with_color(Color::Green).with_message("Unit first defined here"))
                             .with_label(Label::new((self.file_name.clone(), snd.span())).with_color(Color::Red).with_message("Unit defined again here"))
@@ -231,7 +230,7 @@ impl LowerErrorFormatter {
                             .finish()
                     }
                     DuplicateDependency(fst, snd) => {
-                        Report::build(ReportKind::Error, self.file_name.clone(), fst.span().start)
+                        Report::build(ReportKind::Error, (self.file_name.clone(), fst.span()))
                             .with_message(format!("Dependency {} defined multiple times in the same unit", snd.cyan()))
                             .with_label(Label::new((self.file_name.clone(), fst.span())).with_color(Color::Green).with_message("First defined here"))
                             .with_label(Label::new((self.file_name.clone(), snd.span())).with_color(Color::Red).with_message("Defined again here"))
@@ -239,7 +238,7 @@ impl LowerErrorFormatter {
                             .finish()
                     }
                     DuplicateMetaItem(fst, snd) => {
-                        Report::build(ReportKind::Error, self.file_name.clone(), fst.span().start)
+                        Report::build(ReportKind::Error, (self.file_name.clone(), fst.span()))
                             .with_message(format!("Meta item {} defined multiple times in the same unit", snd.cyan()))
                             .with_label(Label::new((self.file_name.clone(), fst.span())).with_color(Color::Green).with_message("First defined here"))
                             .with_label(Label::new((self.file_name.clone(), snd.span())).with_color(Color::Red).with_message("Defined again here"))
@@ -247,7 +246,7 @@ impl LowerErrorFormatter {
                             .finish()
                     }
                     NameError(unit) => {
-                        Report::build(ReportKind::Error, self.file_name.clone(), unit.span().start)
+                        Report::build(ReportKind::Error, (self.file_name.clone(), unit.span()))
                             .with_message(format!("Identifier refers to a unit {} that doesn't exist", unit.red()))
                             .with_label(Label::new((self.file_name.clone(), unit.span())).with_color(Color::Red).with_message("Undefined unit"))
                             .with_help(format!("Define a unit with the name {} or change the unit being referred to.", unit.red()))

@@ -102,8 +102,7 @@ impl LogNotifier {
         let fs_single = |p: &Spanned<String>, io: &io::Error, message: &str| {
             Report::build(
                 ReportKind::Custom("[err]", Color::Red),
-                self.file_name.clone(),
-                p.span().start,
+                (self.file_name.clone(), p.span()),
             )
             .with_message(message)
             .with_note(io.to_string())
@@ -132,12 +131,12 @@ impl LogNotifier {
                 }
                 ExecutionFailure(args, io) => {
                     if !args.is_empty() {
-                        let start = args.first().unwrap().span().start;
-                        let end = args.last().unwrap().span().end;
+                        let arg0 = args.first().unwrap().span();
+                        let argn = args.last().unwrap().span();
 
-                        Report::build(ReportKind::Error, self.file_name.clone(), start)
+                        Report::build(ReportKind::Error, (self.file_name.clone(), arg0.clone()))
                             .with_label(
-                                Label::new((self.file_name.clone(), start..end))
+                                Label::new((self.file_name.clone(), arg0.start..argn.end))
                                     .with_color(Color::Red),
                             )
                             .with_message("Failed to execute process")
@@ -156,8 +155,7 @@ impl LogNotifier {
                 FsError(CopyError(src, dst, io)) => {
                     Report::build(
                         ReportKind::Custom("[err]", Color::Red),
-                        self.file_name.clone(),
-                        src.span().start,
+                        (self.file_name.clone(), src.span()),
                     )
                     .with_message(format!("Unable copy {} to {}", src.cyan(), dst.cyan()))
                     .with_note(io.to_string())

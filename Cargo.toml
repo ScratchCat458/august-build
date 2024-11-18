@@ -22,9 +22,9 @@ include = ["**/*.rs", "Cargo.toml", "Cargo.lock", "README.md", "LICENSE.md"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-ariadne = "0.4"
+ariadne = "0.5"
 chumsky = "0.9"
-thiserror = "1.0"
+thiserror = "2.0"
 owo-colors = { version = "4.0", features = ["supports-colors"] }
 dircpy = "0.3"
 clap = { version = "4.5", features = ["derive", "string"] }
