@@ -1,5 +1,4 @@
 use std::{
-    collections::HashMap,
     env,
     ffi::{OsStr, OsString},
     fs::{self, canonicalize},
@@ -22,7 +21,7 @@ use futures::{future::ready, stream::FuturesUnordered, StreamExt, TryStreamExt};
 use thiserror::Error;
 use tokio::task::block_in_place;
 
-use crate::{parser::Spanned, Command, EnvCommand, FsCommand, IoCommand, Module, Unit};
+use crate::{parser::Spanned, Command, EnvCommand, FsCommand, HashMap, IoCommand, Module, Unit};
 
 #[derive(Debug, Error)]
 pub enum RuntimeError {
@@ -595,7 +594,7 @@ impl EnvCommand {
             RemoveVar(var) => {
                 rt.env_vars.rcu(|envs| {
                     let mut envs = HashMap::clone(envs);
-                    envs.remove(OsStr::new(var.inner()));
+                    envs.swap_remove(OsStr::new(var.inner()));
                     envs
                 });
                 Ok(())

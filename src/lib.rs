@@ -1,4 +1,5 @@
-use std::collections::{HashMap, HashSet};
+use indexmap::{IndexMap, IndexSet};
+use rustc_hash::FxBuildHasher;
 use thiserror::Error;
 
 use parser::{Spanned, AST};
@@ -6,6 +7,9 @@ use parser::{Spanned, AST};
 pub mod lexer;
 pub mod parser;
 pub mod runtime;
+
+pub(crate) type HashMap<K, V> = IndexMap<K, V, FxBuildHasher>;
+pub(crate) type HashSet<K> = IndexSet<K, FxBuildHasher>;
 
 #[derive(Debug, Clone)]
 pub struct Module {
@@ -19,7 +23,7 @@ impl Module {
 
         let mut unit_iter = ast.iter().filter(|a| matches!(a, AST::Unit(_, _)));
         let mut units: HashMap<Spanned<String>, Unit> =
-            HashMap::with_capacity(unit_iter.size_hint().0);
+            HashMap::with_capacity_and_hasher(unit_iter.size_hint().0, FxBuildHasher);
 
         while let Some(AST::Unit(name, cmds)) = unit_iter.next() {
             let res = Unit::lower(cmds);
@@ -41,7 +45,8 @@ impl Module {
         }
 
         let mut expose_iter = ast.into_iter().filter(|a| matches!(a, AST::Expose(_, _)));
-        let mut expose = HashMap::with_capacity(expose_iter.size_hint().0);
+        let mut expose =
+            HashMap::with_capacity_and_hasher(expose_iter.size_hint().0, FxBuildHasher);
 
         while let Some(AST::Expose(prag, unit)) = expose_iter.next() {
             let mut err = false;
@@ -132,7 +137,7 @@ impl Unit {
             })
             .flatten();
         let mut depends_on: HashSet<Spanned<String>> =
-            HashSet::with_capacity(depends_iter.size_hint().0);
+            HashSet::with_capacity_and_hasher(depends_iter.size_hint().0, FxBuildHasher);
 
         for dep in depends_iter {
             if let Some(other) = depends_on.get(dep) {
@@ -150,7 +155,7 @@ impl Unit {
             }
         });
         let mut meta: HashMap<Spanned<String>, String> =
-            HashMap::with_capacity(meta_iter.size_hint().0);
+            HashMap::with_capacity_and_hasher(meta_iter.size_hint().0, FxBuildHasher);
 
         for meta_items in meta_iter {
             for (var, val) in meta_items {

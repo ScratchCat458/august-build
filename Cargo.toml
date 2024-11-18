@@ -35,6 +35,8 @@ crossbeam-utils = "0.8"
 arc-swap = "1.7"
 tokio = { version = "1.40", features = ["rt-multi-thread", "fs", "process"] }
 futures = "0.3"
+indexmap = { version = "2.6", features = ["std"] }
+rustc-hash = "2.0"
 
 [[bin]]
 name = "august"
