@@ -7,16 +7,16 @@ use clap_complete::Shell;
 #[command(author, version, about)]
 pub struct Cli {
     /// File path of the build script.
-    #[arg(short, long, default_value = PathBuf::from("main.august").into_os_string())]
+    #[arg(global(true), short, long, default_value = PathBuf::from("main.august").into_os_string())]
     pub script: PathBuf,
     /// Provides more specific logging output are command execution
-    #[arg(short, long)]
+    #[arg(global(true), short, long)]
     pub verbose: bool,
     /// Causes unit execution to not produce any logging output
-    #[arg(short, long)]
+    #[arg(global(true), short, long)]
     pub quiet: bool,
 
-    #[arg(long, value_enum, default_value_t, alias("color"))]
+    #[arg(global(true), long, value_enum, default_value_t, alias("color"))]
     pub colour: ColourSupport,
 
     #[command(subcommand)]
