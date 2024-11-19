@@ -274,38 +274,38 @@ fn inspect(module: &Module) {
     } else {
         table.set_header(["Unit", "Dependencies", "@meta", ""]);
         table.add_rows(module.units().iter().flat_map(|(k, v)| {
-            let mut rows = Vec::with_capacity(v.meta.len());
+            // TODO: Rewrite using iterators
+            let mut rows = Vec::with_capacity(v.meta.len().max(v.deps().len()));
+
             let mut meta_iter = v.meta.iter();
             let mut dep_iter = v.deps().iter();
 
-            if let Some((var, val)) = meta_iter.next() {
-                rows.push(Row::from([
-                    k.inner_owned(),
-                    dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
-                    var.inner_owned(),
-                    val.to_string(),
-                ]));
-            } else {
-                rows.push(Row::from([
+            rows.push(if let Some((var, val)) = meta_iter.next() {
+                Row::from([
                     k.inner(),
-                    &dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
+                    dep_iter.next().map(|d| &**d.inner()).unwrap_or_default(),
+                    var.inner(),
+                    val,
+                ])
+            } else {
+                Row::from([
+                    k.inner(),
+                    dep_iter.next().map(|d| &**d.inner()).unwrap_or_default(),
                     "",
                     "",
-                ]))
-            }
+                ])
+            });
 
-            #[allow(clippy::while_let_on_iterator)]
-            while let Some((var, val)) = meta_iter.next() {
+            for (var, val) in meta_iter {
                 rows.push(Row::from([
-                    "".to_string(),
-                    dep_iter.next().map(|d| d.inner_owned()).unwrap_or_default(),
-                    var.inner_owned(),
-                    val.to_string(),
+                    "",
+                    dep_iter.next().map(|d| &**d.inner()).unwrap_or_default(),
+                    &**var.inner(),
+                    val,
                 ]));
             }
 
-            #[allow(clippy::while_let_on_iterator)]
-            while let Some(dep) = dep_iter.next() {
+            for dep in dep_iter {
                 rows.push(Row::from(["", dep.inner(), "", ""]));
             }
 
