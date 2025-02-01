@@ -111,7 +111,6 @@ dependencies = [
  "clap",
  "clap_complete",
  "comfy-table",
- "crossbeam-utils",
  "dircpy",
  "duct",
  "futures",

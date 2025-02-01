@@ -6,7 +6,12 @@ use std::{
     process::exit,
 };
 
-use august_build::{lexer::lexer, parser::parser, runtime::Runtime, Module, Pragma};
+use august_build::{
+    lexer::lexer,
+    parser::parser,
+    runtime::{NotifierExt, Runtime},
+    Module, Pragma,
+};
 use chumsky::{Parser, Stream};
 use clap::CommandFactory;
 use cli::Cli;
@@ -63,7 +68,7 @@ fn do_main() -> Result<(), CLIError> {
                 .unit_by_pragma(Pragma::Build)
                 .ok_or(CLIError::NonExposedPragma(Pragma::Build))?
                 .clone();
-            run_unit_async(&cli, module, &code, &this)?;
+            run_unit(&cli, module, &code, &this)?;
         }
         Test => {
             let (module, code) = parse_file(&cli.script)?;
@@ -71,19 +76,12 @@ fn do_main() -> Result<(), CLIError> {
                 .unit_by_pragma(Pragma::Test)
                 .ok_or(CLIError::NonExposedPragma(Pragma::Test))?
                 .clone();
-            run_unit_async(&cli, module, &code, &this)?;
+            run_unit(&cli, module, &code, &this)?;
         }
-        Run {
-            ref unit,
-            threads_runtime,
-        } => {
+        Run { ref unit } => {
             let (module, code) = parse_file(&cli.script)?;
             if module.unit_exists(unit) {
-                if threads_runtime {
-                    run_unit(&cli, module, &code, unit)?;
-                } else {
-                    run_unit_async(&cli, module, &code, unit)?;
-                }
+                run_unit(&cli, module, &code, unit)?;
             } else {
                 Err(CLIError::NonExistentUnit(unit.clone()))?;
             }
@@ -215,36 +213,9 @@ fn run_unit(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(), CLI
         })
     };
 
-    runtime.run(name).map_err(|e| {
-        runtime.notifier().error(&[e]);
-        CLIError::Runtime
-    })
-}
-
-fn run_unit_async(cli: &Cli, module: Module, code: &str, name: &str) -> Result<(), CLIError> {
-    relative_to(&cli.script)?;
-
-    let runtime = if cli.quiet {
-        Runtime::new(module, SilentNotifier)
-    } else {
-        Runtime::new(module, {
-            let mut n = LogNotifier::new(
-                cli.script
-                    .file_name()
-                    .map(|p| p.to_string_lossy())
-                    .unwrap_or_default(),
-                code,
-            );
-            if cli.verbose {
-                n = n.verbose();
-            }
-            n
-        })
-    };
-
     tokio::runtime::Runtime::new()
         .unwrap()
-        .block_on(runtime.run_async(name))
+        .block_on(runtime.run(name))
         .map_err(|e| {
             runtime.notifier().error(&[e]);
             CLIError::Runtime

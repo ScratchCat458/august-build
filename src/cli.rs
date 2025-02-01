@@ -38,12 +38,7 @@ pub enum CLICommand {
     /// Runs the unit exposed to `test`
     Test,
     /// Runs the unit provided as an argument
-    Run {
-        unit: String,
-        /// [deprecated] Runs tasks on threads
-        #[arg(long = "deprecated-threads-runtime")]
-        threads_runtime: bool,
-    },
+    Run { unit: String },
 }
 
 #[derive(Debug, Clone, Copy, Default, ValueEnum)]
