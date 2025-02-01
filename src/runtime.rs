@@ -679,12 +679,12 @@ pub enum NotifierEvent<'a> {
 }
 
 /// Trait to hook into runtime events, usually for logging.
-///
-/// Notifiers should only implement `on_event`.
-/// Other methods are convienience and delegate to `on_event`.
 pub trait Notifier {
     fn on_event(&self, event: NotifierEvent<'_>);
+}
 
+/// Convenience trait for using [`Notifier`]
+pub trait NotifierExt: Notifier {
     fn call(&self, command: &Command) {
         self.on_event(NotifierEvent::Call(command));
     }
@@ -709,3 +709,5 @@ pub trait Notifier {
         self.on_event(NotifierEvent::BlockOn { parent, name });
     }
 }
+
+impl<T: Notifier + ?Sized> NotifierExt for T {}
