@@ -141,7 +141,7 @@ where
                     )
                     .with_label(
                         Label::new((self.file_name.clone(), span.clone()))
-                            .with_message(format!("Must be closed before {}", delimiter))
+                            .with_message(format!("Must be closed before {delimiter}"))
                             .with_color(Color::Yellow),
                     )
             } else {
@@ -209,7 +209,7 @@ impl LowerErrorFormatter {
             .errors
             .iter()
             .map(|err| -> Report<(String, Range<usize>)> {
-                use LowerError::*;
+                use LowerError::{DuplicateExpose, DuplicateUnit, DuplicateDependency, DuplicateMetaItem, NameError};
 
                 match err {
                     DuplicateExpose(pragma, unit) => {

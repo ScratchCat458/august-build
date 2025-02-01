@@ -37,7 +37,7 @@ fn main() {
 }
 
 fn do_main() -> Result<(), CLIError> {
-    use CLICommand::*;
+    use CLICommand::{Build, Check, Completions, Info, Inspect, Run, Test};
 
     let cli = <Cli as clap::Parser>::parse();
 
@@ -46,7 +46,7 @@ fn do_main() -> Result<(), CLIError> {
             owo_colors::set_override(true);
         }
         ColourSupport::Never => owo_colors::set_override(false),
-        _ => {}
+        ColourSupport::Auto => {}
     }
 
     match cli.subcommand {
@@ -63,7 +63,7 @@ fn do_main() -> Result<(), CLIError> {
                 .unit_by_pragma(Pragma::Build)
                 .ok_or(CLIError::NonExposedPragma(Pragma::Build))?
                 .clone();
-            run_unit_async(&cli, module, &code, &this)?
+            run_unit_async(&cli, module, &code, &this)?;
         }
         Test => {
             let (module, code) = parse_file(&cli.script)?;
@@ -71,7 +71,7 @@ fn do_main() -> Result<(), CLIError> {
                 .unit_by_pragma(Pragma::Test)
                 .ok_or(CLIError::NonExposedPragma(Pragma::Test))?
                 .clone();
-            run_unit_async(&cli, module, &code, &this)?
+            run_unit_async(&cli, module, &code, &this)?;
         }
         Run {
             ref unit,
@@ -80,16 +80,16 @@ fn do_main() -> Result<(), CLIError> {
             let (module, code) = parse_file(&cli.script)?;
             if module.unit_exists(unit) {
                 if threads_runtime {
-                    run_unit(&cli, module, &code, unit)?
+                    run_unit(&cli, module, &code, unit)?;
                 } else {
-                    run_unit_async(&cli, module, &code, unit)?
+                    run_unit_async(&cli, module, &code, unit)?;
                 }
             } else {
                 Err(CLIError::NonExistentUnit(unit.clone()))?;
             }
         }
         Completions { shell } => {
-            clap_complete::generate(shell, &mut Cli::command(), "august", &mut stdout())
+            clap_complete::generate(shell, &mut Cli::command(), "august", &mut stdout());
         }
         Info => {
             let mut table = Table::new();
@@ -321,15 +321,11 @@ fn inspect(module: &Module) {
     expose_table.set_header(["Pragma", "Unit"]);
     expose_table.add_row(Row::from([
         "Test",
-        &module
-            .unit_by_pragma(Pragma::Test)
-            .unwrap_or("".to_string()),
+        &module.unit_by_pragma(Pragma::Test).unwrap_or_default(),
     ]));
     expose_table.add_row(Row::from([
         "Build",
-        &module
-            .unit_by_pragma(Pragma::Build)
-            .unwrap_or("".to_string()),
+        &module.unit_by_pragma(Pragma::Build).unwrap_or_default(),
     ]));
 
     println!("{expose_table}\n{table}");

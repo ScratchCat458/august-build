@@ -56,7 +56,7 @@ impl<T: Display> Display for Spanned<T> {
 
 impl<T: Hash> Hash for Spanned<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
-        self.0.hash(state)
+        self.0.hash(state);
     }
 }
 
@@ -251,6 +251,8 @@ fn module_prefix(s: impl AsRef<str>) -> impl Parser<Token, (), Error = Simple<To
         .to(())
 }
 
+// vvv Waiting for TAIT
+#[allow(clippy::type_complexity)]
 fn binary_map(
 ) -> impl Parser<Token, Vec<(Spanned<String>, Option<Spanned<String>>)>, Error = Simple<Token>> + Clone
 {
@@ -298,30 +300,30 @@ where
     P: Parser<Token, O, Error = Simple<Token>>,
 {
     fn round_delimited(self) -> TokenDelim<Self> {
-        use Delim::*;
-        use Token::*;
-
-        self.delimited_by(just(OpenDelim(Round)), just(CloseDelim(Round)))
+        self.delimited_by(
+            just(Token::OpenDelim(Delim::Round)),
+            just(Token::CloseDelim(Delim::Round)),
+        )
     }
 
     fn square_delimited(self) -> TokenDelim<Self> {
-        use Delim::*;
-        use Token::*;
-
-        self.delimited_by(just(OpenDelim(Square)), just(CloseDelim(Square)))
+        self.delimited_by(
+            just(Token::OpenDelim(Delim::Square)),
+            just(Token::CloseDelim(Delim::Square)),
+        )
     }
 
     fn curly_delimited(self) -> TokenDelim<Self> {
-        use Delim::*;
-        use Token::*;
-
-        self.delimited_by(just(OpenDelim(Curly)), just(CloseDelim(Curly)))
+        self.delimited_by(
+            just(Token::OpenDelim(Delim::Curly)),
+            just(Token::CloseDelim(Delim::Curly)),
+        )
     }
 
     fn arrow_delimited(self) -> TokenDelim<Self> {
-        use Delim::*;
-        use Token::*;
-
-        self.delimited_by(just(OpenDelim(Arrow)), just(CloseDelim(Arrow)))
+        self.delimited_by(
+            just(Token::OpenDelim(Delim::Arrow)),
+            just(Token::CloseDelim(Delim::Arrow)),
+        )
     }
 }

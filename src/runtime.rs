@@ -259,14 +259,13 @@ impl Runtime {
 
 impl Command {
     pub fn call(&self, rt: &Runtime) -> Result<(), RuntimeError> {
-        use Command::*;
+        use Command::{DependsOn, Do, Env, Exec, Fs, Io, Meta};
 
         rt.notifier.call(self);
 
         match self {
             // no op, shouldn't be in Vec<Command>
-            DependsOn(_) => Ok(()),
-            Meta(_) => Ok(()),
+            DependsOn(_) | Meta(_) => Ok(()),
 
             Do(units) => units.iter().try_for_each(|unit| rt.run(unit.inner())),
             Exec(cmd) => exec(rt, cmd),
@@ -280,14 +279,13 @@ impl Command {
     }
 
     pub async fn call_async(&self, rt: &Runtime) -> Result<(), RuntimeError> {
-        use Command::*;
+        use Command::{Concurrent, DependsOn, Do, Env, Exec, Fs, Io, Meta};
 
         rt.notifier.call(self);
 
         match self {
             // no op, shouldn't be in Vec<Command>
-            DependsOn(_) => Ok(()),
-            Meta(_) => Ok(()),
+            DependsOn(_) | Meta(_) => Ok(()),
 
             Do(units) => units.iter().try_for_each(|unit| rt.run(unit.inner())),
             Exec(cmd) => exec_async(rt, cmd).await,
@@ -302,10 +300,10 @@ impl Command {
                     .await;
 
                 // TODO: Make less jank
-                if !errors.is_empty() {
-                    Err(errors.pop().unwrap())
-                } else {
+                if errors.is_empty() {
                     Ok(())
+                } else {
+                    Err(errors.pop().unwrap())
                 }
             }
 
@@ -325,7 +323,9 @@ fn exec(rt: &Runtime, cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
         .run()
         .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
 
-    if !exec.status.success() {
+    if exec.status.success() {
+        Ok(())
+    } else {
         Err(RuntimeError::ExecutionFailure(
             cmd.to_vec(),
             io::Error::new(
@@ -333,8 +333,6 @@ fn exec(rt: &Runtime, cmd: &[Spanned<String>]) -> Result<(), RuntimeError> {
                 format!("Process returned non-successfully with {}.", exec.status),
             ),
         ))
-    } else {
-        Ok(())
     }
 }
 
@@ -352,7 +350,9 @@ async fn exec_async(rt: &Runtime, cmd: &[Spanned<String>]) -> Result<(), Runtime
         .await
         .map_err(|io| RuntimeError::ExecutionFailure(cmd.to_vec(), io))?;
 
-    if !exec.status.success() {
+    if exec.status.success() {
+        Ok(())
+    } else {
         Err(RuntimeError::ExecutionFailure(
             cmd.to_vec(),
             io::Error::new(
@@ -360,8 +360,6 @@ async fn exec_async(rt: &Runtime, cmd: &[Spanned<String>]) -> Result<(), Runtime
                 format!("Process returned non-successfully with {}.", exec.status),
             ),
         ))
-    } else {
-        Ok(())
     }
 }
 
@@ -384,7 +382,9 @@ impl Future for HandleFuture {
 
 impl FsCommand {
     pub fn call(&self) -> Result<(), RuntimeError> {
-        use FsCommand::*;
+        use FsCommand::{
+            Copy, CopyTo, Create, CreateDir, EPrintFile, Move, MoveTo, PrintFile, Remove,
+        };
 
         match self {
             Create(p) => fs::File::create(p.inner())
@@ -426,7 +426,9 @@ impl FsCommand {
 
     pub async fn call_async(&self) -> Result<(), RuntimeError> {
         use tokio::fs;
-        use FsCommand::*;
+        use FsCommand::{
+            Copy, CopyTo, Create, CreateDir, EPrintFile, Move, MoveTo, PrintFile, Remove,
+        };
 
         match self {
             Create(p) => fs::File::create(p.inner())
@@ -483,10 +485,10 @@ fn expand_binary_map<'a>(
     map: &'a [(Spanned<String>, Option<Spanned<String>>)],
 ) -> impl Iterator<Item = (&'a Spanned<String>, Spanned<String>)> + 'a {
     map.iter().map(|(src, dst)| {
-        let new_dst = dst
-            .as_ref()
-            .map(|dst| head.clone().map(extend_path(dst.inner())))
-            .unwrap_or_else(|| head.clone().map(extend_path(src.inner())));
+        let new_dst = dst.as_ref().map_or_else(
+            || head.clone().map(extend_path(src.inner())),
+            |dst| head.clone().map(extend_path(dst.inner())),
+        );
         (src, new_dst)
     })
 }
@@ -564,13 +566,21 @@ pub enum FsError {
 
 impl IoCommand {
     pub fn call(&self) -> Result<(), RuntimeError> {
-        use IoCommand::*;
+        use IoCommand::{EPrint, EPrintLn, Print, PrintLn};
 
         match self {
-            PrintLn(t) => println!("{t}"),
-            Print(t) => print!("{t}"),
-            EPrintLn(t) => eprintln!("{t}"),
-            EPrint(t) => eprint!("{t}"),
+            PrintLn(t) => {
+                println!("{t}");
+            }
+            Print(t) => {
+                print!("{t}");
+            }
+            EPrintLn(t) => {
+                eprintln!("{t}");
+            }
+            EPrint(t) => {
+                eprint!("{t}");
+            }
         };
 
         Ok(())
@@ -579,7 +589,7 @@ impl IoCommand {
 
 impl EnvCommand {
     pub fn call(&self, rt: &Runtime) -> Result<(), RuntimeError> {
-        use EnvCommand::*;
+        use EnvCommand::{PathPush, PathRemove, RemoveVar, SetVar};
 
         // FIX: Find a way to make manipulating ENV vars safe
         match self {
@@ -676,26 +686,26 @@ pub trait Notifier {
     fn on_event(&self, event: NotifierEvent<'_>);
 
     fn call(&self, command: &Command) {
-        self.on_event(NotifierEvent::Call(command))
+        self.on_event(NotifierEvent::Call(command));
     }
 
     fn start(&self, name: &str) {
-        self.on_event(NotifierEvent::Start(name))
+        self.on_event(NotifierEvent::Start(name));
     }
 
     fn complete(&self, name: &str) {
-        self.on_event(NotifierEvent::Complete(name))
+        self.on_event(NotifierEvent::Complete(name));
     }
 
     fn error(&self, errors: &[RuntimeError]) {
-        self.on_event(NotifierEvent::Error(errors))
+        self.on_event(NotifierEvent::Error(errors));
     }
 
     fn dependency(&self, parent: &str, name: &str) {
-        self.on_event(NotifierEvent::Dependency { parent, name })
+        self.on_event(NotifierEvent::Dependency { parent, name });
     }
 
     fn block_on(&self, parent: &str, name: &str) {
-        self.on_event(NotifierEvent::BlockOn { parent, name })
+        self.on_event(NotifierEvent::BlockOn { parent, name });
     }
 }

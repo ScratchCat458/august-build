@@ -37,13 +37,15 @@ pub enum Delim {
 
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use Delim::*;
-        use Token::*;
+        use Delim::{Arrow, Curly, Round, Square};
+        use Token::{
+            As, Attr, CloseDelim, Comma, DoubleArrow, DoubleColon, Err, Expose, Ident, OpenDelim,
+            RawIdent, String, Tilde, Unit,
+        };
 
         match self {
             String(s) => f.write_fmt(format_args!("\"{s}\"")),
-            Ident(i) => i.fmt(f),
-            RawIdent(i) => i.fmt(f),
+            Ident(i) | RawIdent(i) => i.fmt(f),
             Unit => "unit".fmt(f),
             Expose => "expose".fmt(f),
             As => "as".fmt(f),

@@ -39,12 +39,13 @@ impl LogNotifier {
     }
 
     fn cmd_call(&self, cmd: &Command) {
+        use august_build::EnvCommand::{PathPush, PathRemove, RemoveVar, SetVar};
+        use august_build::FsCommand::{Copy, Create, CreateDir, Move, Remove};
+        use Command::{Env, Exec, Fs};
+
         if !self.verbose {
             return;
         }
-        use august_build::EnvCommand::*;
-        use august_build::FsCommand::*;
-        use Command::*;
 
         let text = match cmd {
             Exec(args) => Some(
@@ -91,13 +92,18 @@ impl LogNotifier {
         };
 
         if let Some(inner) = text {
-            eprintln!("{} {inner}", "[cmd]".blue())
+            eprintln!("{} {inner}", "[cmd]".blue());
         }
     }
 
     fn err(&self, errors: &[RuntimeError]) {
-        use august_build::runtime::FsError::*;
-        use RuntimeError::*;
+        use august_build::runtime::FsError::{
+            CopyError, CreateDirError, CreateFileError, FileAccessError, RemoveError,
+        };
+        use RuntimeError::{
+            CommandUnsupported, DependencyError, ExecutionFailure, FailedDependency, FsError,
+            JoinPathsError,
+        };
 
         let fs_single = |p: &Spanned<String>, io: &io::Error, message: &str| {
             Report::build(
@@ -119,7 +125,7 @@ impl LogNotifier {
                         "{} Failed to complete {} due to other errors",
                         "[err]".red(),
                         span.red()
-                    )
+                    );
                 }
                 FailedDependency(parent, child) => {
                     eprintln!(
@@ -127,7 +133,7 @@ impl LogNotifier {
                         "[err]".red(),
                         parent.cyan(),
                         child.red()
-                    )
+                    );
                 }
                 ExecutionFailure(args, io) => {
                     if !args.is_empty() {
@@ -146,11 +152,17 @@ impl LogNotifier {
                             .ok();
                     }
                 }
-                FsError(CreateFileError(p, io)) => fs_single(p, io, "Failed to create file"),
-                FsError(CreateDirError(p, io)) => fs_single(p, io, "Failed to create directory"),
-                FsError(RemoveError(p, io)) => fs_single(p, io, "Failed to remove file/directory"),
+                FsError(CreateFileError(p, io)) => {
+                    fs_single(p, io, "Failed to create file");
+                }
+                FsError(CreateDirError(p, io)) => {
+                    fs_single(p, io, "Failed to create directory");
+                }
+                FsError(RemoveError(p, io)) => {
+                    fs_single(p, io, "Failed to remove file/directory");
+                }
                 FsError(FileAccessError(p, io)) => {
-                    fs_single(p, io, "Unable to read the file contents")
+                    fs_single(p, io, "Unable to read the file contents");
                 }
                 FsError(CopyError(src, dst, io)) => {
                     Report::build(
@@ -170,13 +182,13 @@ impl LogNotifier {
                     .ok();
                 }
                 JoinPathsError(e) => {
-                    eprintln!("{} Error occured when join to PATH: {e}", "[err]".red())
+                    eprintln!("{} Error occured when join to PATH: {e}", "[err]".red());
                 }
                 CommandUnsupported(cmd) => {
                     eprintln!(
                         "{} Command {cmd:?} is unsupported on the current runtime",
                         "[err]".red()
-                    )
+                    );
                 }
             }
         }
@@ -188,24 +200,28 @@ impl Notifier for LogNotifier {
         match event {
             NotifierEvent::Call(cmd) => self.cmd_call(cmd),
             NotifierEvent::Start(name) => {
-                eprintln!("{} Begining work on unit {}", "[run]".green(), name.green())
+                eprintln!("{} Begining work on unit {}", "[run]".green(), name.green());
             }
             NotifierEvent::Complete(name) => {
-                eprintln!("{} Completed unit {}", "[run]".green(), name.green())
+                eprintln!("{} Completed unit {}", "[run]".green(), name.green());
             }
             NotifierEvent::Error(err) => self.err(err),
-            NotifierEvent::Dependency { parent, name } => eprintln!(
-                "{} Spawning unit {} to resolve dependency of {}",
-                "[dep]".yellow(),
-                name.yellow(),
-                parent.yellow()
-            ),
-            NotifierEvent::BlockOn { parent, name } => eprintln!(
-                "{} Blocking {} until {} reaches completion",
-                "[dep]".yellow(),
-                parent.yellow(),
-                name.yellow()
-            ),
+            NotifierEvent::Dependency { parent, name } => {
+                eprintln!(
+                    "{} Spawning unit {} to resolve dependency of {}",
+                    "[dep]".yellow(),
+                    name.yellow(),
+                    parent.yellow()
+                );
+            }
+            NotifierEvent::BlockOn { parent, name } => {
+                eprintln!(
+                    "{} Blocking {} until {} reaches completion",
+                    "[dep]".yellow(),
+                    parent.yellow(),
+                    name.yellow()
+                );
+            }
         }
     }
 }

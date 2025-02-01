@@ -68,7 +68,7 @@ impl Module {
         for unit in units.values() {
             for u in &unit.depends_on {
                 if !units.contains_key(u) {
-                    errors.push(LowerError::NameError(u.clone()))
+                    errors.push(LowerError::NameError(u.clone()));
                 }
             }
 
@@ -76,7 +76,7 @@ impl Module {
             while let Some(Command::Do(dos)) = dos_iter.next() {
                 for d in dos {
                     if !units.contains_key(d) {
-                        errors.push(LowerError::NameError(d.clone()))
+                        errors.push(LowerError::NameError(d.clone()));
                     }
                 }
             }
@@ -141,7 +141,7 @@ impl Unit {
 
         for dep in depends_iter {
             if let Some(other) = depends_on.get(dep) {
-                errors.push(LowerError::DuplicateDependency(other.clone(), dep.clone()))
+                errors.push(LowerError::DuplicateDependency(other.clone(), dep.clone()));
             } else {
                 depends_on.insert(dep.clone());
             }
@@ -160,7 +160,7 @@ impl Unit {
         for meta_items in meta_iter {
             for (var, val) in meta_items {
                 if let Some((other, _)) = meta.get_key_value(var) {
-                    errors.push(LowerError::DuplicateMetaItem(other.clone(), var.clone()))
+                    errors.push(LowerError::DuplicateMetaItem(other.clone(), var.clone()));
                 } else {
                     meta.insert(var.clone(), val.clone());
                 }
