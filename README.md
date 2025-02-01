@@ -11,13 +11,13 @@ August is a task-based build system with a strong focus on parallelism.
 ## Installation
 The recommended installation method is via Cargo:
 ```sh
-cargo install august-build
+cargo install august-build --locked
 ```
 To install from source:
 ```sh
 git clone https://github.com/ScratchCat458/august-build
 cd august-build
-cargo install --path .
+cargo install --locked --path .
 ```
 
 ## Documentation

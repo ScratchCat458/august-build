@@ -5,19 +5,15 @@ Both require Rust to be installed.
 
 ## Via cargo
 ```
-cargo install august-build
+cargo install august-build --locked
 ```
 
 ## From source
 ```
 git clone https://github.com/ScratchCat458/august-build/
 cd august-build
-cargo install --path .
+cargo install --locked --path .
 ```
-
-## Graphical Installer (Windows)
-
-[Download](https://github.com/ScratchCat458/august-build/releases/download/v0.6.1/august-build-0.6.1-x86_64.msi){ .md-button }
 
 ## Prebuilt Binaries
 
