@@ -1,3 +1,10 @@
+/// When using August as a library,
+/// disable default features so Cargo doesn't pull CLI dependencies
+///
+/// ```toml
+/// [dependencies]
+/// august-build = { version = "*", default-features = false }
+/// ```
 use indexmap::{IndexMap, IndexSet};
 use rustc_hash::FxBuildHasher;
 use thiserror::Error;
